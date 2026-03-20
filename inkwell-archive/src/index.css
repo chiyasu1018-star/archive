@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+KR:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Geist+Mono:wght@300;400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif SC", "Noto Serif KR", Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+  body {
+    @apply font-serif text-[#333333];
+    background-color: #F5F5F5;
+  }
+}
+
+@layer utilities {
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23000' fill-opacity='0.05'/%3E%3C/svg%3E");
+  }
+  .dark .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='%23fff' fill-opacity='0.05'/%3E%3C/svg%3E");
+  }
+
+  /* 页面最下方的联系声明 */
+  .footer-contact {
+    margin-top: 60px;       /* 与上方内容保持呼吸间距 */
+    padding: 40px 20px;
+    text-align: center;
+    border-top: 1px solid #eeeeee; /* 一条极浅的分割线 */
+    font-size: 13px;
+    color: #888888;         /* 柔和的灰色 */
+    letter-spacing: 1px;
+  }
+
+  .dark .footer-contact {
+    border-top-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  /* 低饱和黄色：@冰冻苹果咖 */
+  .highlight-id {
+    color: #C5A059;         /* 优雅的暗金色/低饱和黄 */
+    font-weight: 500;
+    margin-left: 5px;
+  }
+}
