@@ -207,7 +207,7 @@ export default function App() {
 
       {/* 微博页脚 - 完美保留 */}
       <footer className="footer-contact text-center pb-8">
-        <p className="text-xs opacity-60">如有疑问请联系微博：<span className="font-bold">@冰冻苹果咖</span></p>
+        <p className="text-xs opacity-60">如有疑问请联系微博：<span className="font-bold">@恋花症_</span></p>
       </footer>
 
       <footer className={`py-16 px-6 border-t ${isDarkMode ? 'border-white/10' : 'border-[#e0e0e0]'} text-center font-mono tracking-[-0.2px]`}>
