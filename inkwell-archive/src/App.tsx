@@ -32,7 +32,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
   
-  // 仅新增状态
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
@@ -66,27 +65,20 @@ export default function App() {
     }
   };
 
-  // --- 1. 原始模糊加载界面 (不动字体) ---
+  // 1. 模糊加载界面
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] dark:bg-[#121212]">
-      <motion.div 
-        initial={{ opacity: 0, filter: 'blur(10px)' }} 
-        animate={{ opacity: 1, filter: 'blur(0px)' }} 
-        className="text-center"
-      >
-        <div className="text-sm tracking-[0.5em] opacity-30 uppercase font-serif">
-          INITIALIZING...
-        </div>
+      <motion.div initial={{ opacity: 0, filter: 'blur(10px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} className="text-center">
+        <div className="text-sm tracking-[0.5em] opacity-30 uppercase font-serif">INITIALIZING...</div>
       </motion.div>
     </div>
   );
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
-      
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
-          // --- 2. 新增：年龄确认逻辑 ---
+          // 2. 年龄确认
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
             <AnimatePresence mode="wait">
               {!isHonest ? (
@@ -112,7 +104,7 @@ export default function App() {
             </AnimatePresence>
           </motion.div>
         ) : (
-          // --- 3. 原始 UI 界面 (完全保持你的布局和文字) ---
+          // 3. 网站本体
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/30 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
@@ -162,6 +154,8 @@ export default function App() {
                       <h2 className="text-4xl font-light mb-8 leading-tight">{currentStory.title}</h2>
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 space-y-1 font-sans font-bold">
                         <p>作者: {currentStory.author}</p>
+                        {/* --- 修正：加回了这一行 --- */}
+                        <p>时间: {currentStory.date.replace(/-/g, '.')}</p>
                         <p>字数: {currentStory.wordCount?.toLocaleString() || '...'} (自动识别)</p>
                         <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-4 underline text-current">原链接 →</a>
                       </div>
