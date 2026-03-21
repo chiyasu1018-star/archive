@@ -65,7 +65,6 @@ export default function App() {
     }
   };
 
-  // 1. 模糊加载界面
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] dark:bg-[#121212]">
       <motion.div initial={{ opacity: 0, filter: 'blur(10px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} className="text-center">
@@ -78,7 +77,6 @@ export default function App() {
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
-          // 2. 年龄确认
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
             <AnimatePresence mode="wait">
               {!isHonest ? (
@@ -104,7 +102,6 @@ export default function App() {
             </AnimatePresence>
           </motion.div>
         ) : (
-          // 3. 网站主体
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/30 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
@@ -167,13 +164,17 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
-              <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-6">
+            <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
+              <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容仅供个人学习交流，如有侵权请联系删除，严禁二次转载或用于任何商业用途。</p>
-                <p>如有疑问联系微博：@恋花症-</p>
+                {/* 微博联系行调整：加粗样式、恋花症单独加深颜色 */}
+                <p className="font-bold">
+                  如有疑问联系微博：
+                  <span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span>
+                </p>
               </div>
-              <p className="mt-4 italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
+              <p className="italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
             </footer>
           </motion.div>
         )}
