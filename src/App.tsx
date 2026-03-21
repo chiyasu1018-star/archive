@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
-  ChevronUp, // 新增：向上图标
+  ChevronUp, 
   Moon, 
   Sun, 
   ShieldAlert,
@@ -95,7 +95,7 @@ export default function App() {
         currentChapterTitle: chapterTitle 
       });
       setShowChapterList(false); 
-      window.scrollTo({ top: 0, behavior: 'smooth' }); // 进入正文时自动置顶
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       alert("读取失败");
     } finally {
@@ -114,7 +114,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // --- 新增：回到顶部函数 ---
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -237,30 +236,38 @@ export default function App() {
 
                 ) : (
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto">
-                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12">
-                      <h2 className="text-4xl font-light mb-8 leading-tight">
+                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans">
+                      <h2 className="text-4xl font-serif font-light mb-8 leading-tight">
                         {currentStory.title}
                         {currentStory.currentChapterTitle && (
-                          <span className="block text-xl opacity-50 mt-4">— {currentStory.currentChapterTitle}</span>
+                          <span className="block text-xl opacity-50 mt-4 font-serif">— {currentStory.currentChapterTitle}</span>
                         )}
                       </h2>
-                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 space-y-1 font-sans font-bold">
+                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-40 space-y-1 font-bold">
                         <p>作者: {currentStory.author}</p>
                         <p>时间: {currentStory.date.replace(/-/g, '.')}</p>
                         <p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p>
-                        <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-4 underline text-current">原链接 →</a>
                       </div>
+                      
+                      {/* --- 修改后的原链接部分：加粗、放大、高亮显示 --- */}
+                      <a 
+                        href={currentStory.sourceLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className={`inline-block mt-8 text-sm font-black tracking-widest underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-white hover:opacity-70' : 'text-black hover:opacity-60'}`}
+                      >
+                        原链接 SOURCE →
+                      </a>
                     </header>
                     
                     {reading ? (
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
-                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify mb-24">
+                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify mb-24 font-serif">
                           {currentStory.content}
                         </article>
                         
-                        {/* --- 新增：文末支持作者与回到顶部按钮 --- */}
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>
                               如果喜欢这篇文章，请务必去支持一下原作者。
