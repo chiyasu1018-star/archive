@@ -249,15 +249,19 @@ export default function App() {
                         <p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p>
                       </div>
                       
-                      {/* --- 修改后的原链接部分：加粗、放大、高亮显示 --- */}
-                      <a 
-                        href={currentStory.sourceLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className={`inline-block mt-8 text-sm font-black tracking-widest underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-white hover:opacity-70' : 'text-black hover:opacity-60'}`}
-                      >
-                        原链接 SOURCE →
-                      </a>
+                      {/* --- 修改后的原链接部分：灰蓝色、加粗、适度放大 --- */}
+<a 
+  href={currentStory.sourceLink} 
+  target="_blank" 
+  rel="noopener noreferrer" 
+  className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${
+    isDarkMode 
+      ? 'text-[#90a4ae] hover:text-[#b0bec5]' // 暗色模式下的灰蓝色
+      : 'text-[#607d8b] hover:text-[#455a64]' // 亮色模式下的深灰蓝
+  }`}
+>
+  原链接 SOURCE →
+</a>
                     </header>
                     
                     {reading ? (
