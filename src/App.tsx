@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, 
+  ChevronUp, // 新增：向上图标
   Moon, 
   Sun, 
   ShieldAlert,
@@ -17,7 +18,7 @@ import {
 interface Chapter {
   title: string;
   fileName: string;
-  autoWordCount?: number; // 程序自动计算的结果存这里
+  autoWordCount?: number; 
 }
 
 interface Story {
@@ -56,14 +57,10 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
-  // --- 核心改进：自动数数逻辑 ---
   const handleStoryClick = async (story: Story) => {
     setCurrentStory(story);
-    
     if (story.chapters && story.chapters.length > 0) {
       setShowChapterList(true);
-      
-      // 如果还没数过字数，就开始自动扫描
       if (!story.chapters[0].autoWordCount) {
         const updatedChapters = await Promise.all(
           story.chapters.map(async (ch) => {
@@ -77,10 +74,7 @@ export default function App() {
             }
           })
         );
-        
-        // 把数好的字数更新到当前状态里
         setCurrentStory(prev => prev ? { ...prev, chapters: updatedChapters } : null);
-        // 同时更新主列表，下次点开就不用再数了
         setStories(prev => prev.map(s => s.id === story.id ? { ...s, chapters: updatedChapters } : s));
       }
     } else {
@@ -94,7 +88,6 @@ export default function App() {
       const response = await fetch(`/stories/${fileName}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
-      
       setCurrentStory({ 
         ...parentStory, 
         content: text, 
@@ -102,6 +95,7 @@ export default function App() {
         currentChapterTitle: chapterTitle 
       });
       setShowChapterList(false); 
+      window.scrollTo({ top: 0, behavior: 'smooth' }); // 进入正文时自动置顶
     } catch (err) {
       alert("读取失败");
     } finally {
@@ -117,6 +111,12 @@ export default function App() {
       setCurrentStory(null);
       setShowChapterList(false);
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // --- 新增：回到顶部函数 ---
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (loading) return (
@@ -131,8 +131,7 @@ export default function App() {
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
-          /* 年龄确认部分保持原样 */
-          <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
+            <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
                 <AnimatePresence mode="wait">
                   {!isHonest ? (
                     <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
@@ -185,7 +184,6 @@ export default function App() {
               <AnimatePresence mode="wait">
                 
                 {!currentStory ? (
-                  /* 文章列表页 */
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12">
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
@@ -213,7 +211,6 @@ export default function App() {
                   </motion.div>
                 ) : showChapterList ? (
                   
-                  /* 章节目录页：这里会自动显示数出来的字数 */
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
                     <div className="mb-12 text-center">
                        <h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2>
@@ -239,7 +236,6 @@ export default function App() {
                   </motion.div>
 
                 ) : (
-                  /* 正文阅读页 */
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto">
                     <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12">
                       <h2 className="text-4xl font-light mb-8 leading-tight">
@@ -259,9 +255,24 @@ export default function App() {
                     {reading ? (
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
-                      <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify">
-                        {currentStory.content}
-                      </article>
+                      <>
+                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify mb-24">
+                          {currentStory.content}
+                        </article>
+                        
+                        {/* --- 新增：文末支持作者与回到顶部按钮 --- */}
+                        <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
+                           <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>
+                              如果喜欢这篇文章，请务必去支持一下原作者。
+                           </p>
+                           <button 
+                             onClick={scrollToTop}
+                             className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}
+                           >
+                             Top / 回到顶部 <ChevronUp size={14} />
+                           </button>
+                        </div>
+                      </>
                     )}
                   </motion.div>
                 )}
