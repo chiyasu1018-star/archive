@@ -138,8 +138,7 @@ export default function App() {
           <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
           <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
             <p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。</p>
-            <p>继续访问即代表您已年满 18 周岁并同意承担相关浏览风险。</p>
-            <p className="text-[10px] uppercase tracking-[0.2em] opacity-40 mt-2">喜欢这篇文章就去支持原作者吧！</p>
+            <p>继续访问即代表您已年满 18 周岁。</p>
           </div>
           <div className="flex flex-col gap-4 items-center">
             <button 
@@ -160,7 +159,7 @@ export default function App() {
         <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
           <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
           <h2 className="text-lg font-bold tracking-[0.2em] mb-4">期待下次相遇</h2>
-          <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵。<br/>喵。</p>
+          <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵<br/>喵喵喵</p>
           <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
         </motion.div>
       )}
