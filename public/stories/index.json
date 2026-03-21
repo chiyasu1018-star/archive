@@ -4,15 +4,15 @@
     "title": "恋爱焦虑警告",
     "author": "r!n",
     "date": "2026-02-18",
-    "fileName": "story1.txt", 
+    "path": "stories/story1.txt", 
     "sourceLink": "https://posty.pe/e4egyf"
-  }
+  },
   {
     "id": "2",
     "title": "饱腹美学的爱情",
     "author": "콩자반",
     "date": "2025-11-22",
-    "fileName": "story2.txt",
+    "path": "stories/story2.txt",
     "sourceLink": "https://posty.pe/dcj0z1"
   }
 ]
