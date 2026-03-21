@@ -14,5 +14,26 @@
     "date": "2025-11-22",
     "fileName": "story2.txt",
     "sourceLink": "https://posty.pe/dcj0z1"
+  },
+  {
+    "id": "3",
+    "title": "这里是长篇文章的标题示例",
+    "author": "作者名",
+    "date": "2024-05-20",
+    "sourceLink": "https://...",
+    "chapters": [
+      {
+        "title": "第一章节名称",
+        "fileName": "story3_1.txt"
+      },
+      {
+        "title": "第二章节名称",
+        "fileName": "story3_2.txt"
+      },
+      {
+        "title": "第三章节名称",
+        "fileName": "story3_3.txt"
+      }
+    ]
   }
 ]
