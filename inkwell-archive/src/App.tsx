@@ -174,7 +174,7 @@ export default function App() {
                   <span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span>
                 </p>
               </div>
-              <p className="italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
+              <p className="italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE.</p>
             </footer>
           </motion.div>
         )}
