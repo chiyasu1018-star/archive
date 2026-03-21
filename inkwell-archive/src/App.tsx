@@ -168,13 +168,11 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest">
-              <p>如有疑问请联系微博：@恋花症-</p>
-              <p className="mt-4 italic font-sans uppercase">© 2026 HW ARCHIVE.</p>
-            </footer>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+           <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
+  <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-6">
+    <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有</p>
+    <p>站内内容仅供个人学习交流，如有侵权请联系删除，严禁二次转载或用于任何商业用途。</p>
+    <p>如有疑问联系微博：@恋花症-</p>
+  </div>
+  <p className="mt-4 italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
+</footer>
