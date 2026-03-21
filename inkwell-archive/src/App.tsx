@@ -35,8 +35,9 @@ export default function App() {
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
+  // 这里的路径改为了 /public/stories/，以匹配你的 GitHub 结构
   useEffect(() => {
-    fetch('/stories/index.json')
+    fetch('/public/stories/index.json')
       .then(res => res.json())
       .then(data => {
         setStories(data);
@@ -52,7 +53,8 @@ export default function App() {
     }
     setReading(true);
     try {
-      const response = await fetch(`/stories/${story.fileName}`);
+      // 这里的路径同样改为了 /public/stories/
+      const response = await fetch(`/public/stories/${story.fileName}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       const updatedStory = { ...story, content: text, wordCount: count };
@@ -168,7 +170,6 @@ export default function App() {
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容仅供个人学习交流，如有侵权请联系删除，严禁二次转载或用于任何商业用途。</p>
-                {/* 微博联系行调整：加粗样式、恋花症单独加深颜色 */}
                 <p className="font-bold">
                   如有疑问联系微博：
                   <span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span>
