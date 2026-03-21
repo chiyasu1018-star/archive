@@ -35,13 +35,13 @@
         "fileName": "story3_3.txt"
       }
     ]
-    {
+  },
+  {
     "id": "4",
     "title": "测试添加",
     "author": "콩자반",
     "date": "2025-11-22",
     "fileName": "story4.txt",
     "sourceLink": "https://posty.pe/dcj0z1"
-  },
   }
 ]
