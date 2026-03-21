@@ -168,6 +168,7 @@ export default function App() {
               </AnimatePresence>
             </main>
 
+            
            <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
   <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-6">
     <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有</p>
