@@ -11,13 +11,13 @@ import {
   Sun, 
   ShieldAlert,
   Heart,
-  BookOpen // 增加一个图标表示长篇
+  BookOpen 
 } from 'lucide-react';
 
-// 1. 定义章节接口
 interface Chapter {
   title: string;
   fileName: string;
+  autoWordCount?: number; // 程序自动计算的结果存这里
 }
 
 interface Story {
@@ -25,18 +25,18 @@ interface Story {
   title: string;
   author: string;
   date: string;
-  fileName?: string; // 短篇必填
-  chapters?: Chapter[]; // 长篇必填
+  fileName?: string; 
+  chapters?: Chapter[]; 
   sourceLink: string;
   wordCount?: number;
   content?: string;
-  currentChapterTitle?: string; // 用于记录当前正在阅读的章节名
+  currentChapterTitle?: string; 
 }
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
-  const [showChapterList, setShowChapterList] = useState(false); // 控制是否显示章节选择面板
+  const [showChapterList, setShowChapterList] = useState(false); 
   
   const [fontSize, setFontSize] = useState(18); 
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -56,14 +56,34 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
-  // 2. 修改加载逻辑
-  const handleStoryClick = (story: Story) => {
+  // --- 核心改进：自动数数逻辑 ---
+  const handleStoryClick = async (story: Story) => {
+    setCurrentStory(story);
+    
     if (story.chapters && story.chapters.length > 0) {
-      // 如果是长篇，进入章节选择状态
-      setCurrentStory(story);
       setShowChapterList(true);
+      
+      // 如果还没数过字数，就开始自动扫描
+      if (!story.chapters[0].autoWordCount) {
+        const updatedChapters = await Promise.all(
+          story.chapters.map(async (ch) => {
+            try {
+              const res = await fetch(`/stories/${ch.fileName}`);
+              const text = await res.text();
+              const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
+              return { ...ch, autoWordCount: count };
+            } catch {
+              return { ...ch, autoWordCount: 0 };
+            }
+          })
+        );
+        
+        // 把数好的字数更新到当前状态里
+        setCurrentStory(prev => prev ? { ...prev, chapters: updatedChapters } : null);
+        // 同时更新主列表，下次点开就不用再数了
+        setStories(prev => prev.map(s => s.id === story.id ? { ...s, chapters: updatedChapters } : s));
+      }
     } else {
-      // 如果是短篇，直接加载
       loadFullStory(story, story.fileName!);
     }
   };
@@ -75,31 +95,25 @@ export default function App() {
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       
-      // 构建当前阅读状态
-      const readingStory = { 
+      setCurrentStory({ 
         ...parentStory, 
         content: text, 
         wordCount: count,
-        currentChapterTitle: chapterTitle // 记录章节名
-      };
-      
-      setCurrentStory(readingStory);
-      setShowChapterList(false); // 关闭章节列表，进入正文
+        currentChapterTitle: chapterTitle 
+      });
+      setShowChapterList(false); 
     } catch (err) {
-      alert("内容读取失败");
+      alert("读取失败");
     } finally {
       setReading(false);
     }
   };
 
-  // 处理返回逻辑
   const handleBack = () => {
     if (currentStory?.content && currentStory.chapters) {
-      // 如果在阅读长篇的某一章，返回到章节列表
       setShowChapterList(true);
       setCurrentStory({ ...currentStory, content: undefined });
     } else {
-      // 否则返回首页
       setCurrentStory(null);
       setShowChapterList(false);
     }
@@ -117,8 +131,8 @@ export default function App() {
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
-            /* ... 年龄确认代码保持不变 ... */
-            <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
+          /* 年龄确认部分保持原样 */
+          <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
                 <AnimatePresence mode="wait">
                   {!isHonest ? (
                     <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
@@ -170,8 +184,8 @@ export default function App() {
             <main className="pt-24 pb-20 px-6 max-w-4xl mx-auto flex-grow w-full">
               <AnimatePresence mode="wait">
                 
-                {/* 状态1：首页文章列表 */}
                 {!currentStory ? (
+                  /* 文章列表页 */
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12">
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
@@ -199,29 +213,33 @@ export default function App() {
                   </motion.div>
                 ) : showChapterList ? (
                   
-                  /* 状态2：章节选择列表 */
+                  /* 章节目录页：这里会自动显示数出来的字数 */
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
                     <div className="mb-12 text-center">
                        <h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2>
-                       <p className="text-xs opacity-40 tracking-widest uppercase">Select a Chapter / 选择章节</p>
+                       <p className="text-xs opacity-40 tracking-widest uppercase font-sans">Directory / 目录</p>
                     </div>
                     <div className="grid gap-4">
                       {currentStory.chapters?.map((chapter, idx) => (
                         <button 
                           key={idx}
                           onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)}
-                          className={`p-6 border rounded-xl text-left transition-all hover:pl-8 ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}
+                          className={`p-6 border rounded-xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}
                         >
-                          <span className="text-[10px] opacity-30 block mb-1 font-sans">CHAPTER {idx + 1}</span>
-                          <span className="text-lg">{chapter.title}</span>
+                          <div>
+                            <span className="text-[10px] opacity-30 block mb-1 font-sans font-bold">CHAPTER {idx + 1}</span>
+                            <span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span>
+                          </div>
+                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right">
+                             {chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}
+                          </div>
                         </button>
                       ))}
                     </div>
                   </motion.div>
 
                 ) : (
-                  
-                  /* 状态3：正文阅读 */
+                  /* 正文阅读页 */
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto">
                     <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12">
                       <h2 className="text-4xl font-light mb-8 leading-tight">
@@ -251,8 +269,7 @@ export default function App() {
             </main>
 
             <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
-                {/* ... Footer 内容保持不变 ... */}
-                <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
+              <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
                 <p className="font-bold">
