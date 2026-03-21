@@ -107,7 +107,7 @@ export default function App() {
                 <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
                   <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
                   <h2 className="text-lg font-bold tracking-[0.2em] mb-4">感谢你的诚实</h2>
-                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">档案馆的大门将为你保留。<br/>成年后再来吧。</p>
+                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">。<br/>成年后再来吧。</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -177,7 +177,7 @@ export default function App() {
             </main>
 
             <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest">
-              <p>如有疑问请联系微博：@冰冻苹果咖</p>
+              <p>如有疑问请联系微博：@恋花症-</p>
               <p className="mt-4 italic uppercase">© 2026 HW ARCHIVE.</p>
             </footer>
           </motion.div>
