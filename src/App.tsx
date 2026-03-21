@@ -256,7 +256,7 @@ export default function App() {
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
                 <p className="font-bold">
-                  如有疑问联系微博：
+                  联系微博：
                   <span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span>
                 </p>
               </div>
