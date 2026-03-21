@@ -144,7 +144,7 @@ export default function App() {
                     <header className="text-center py-12">
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
                       <div className="h-px w-12 bg-current mx-auto opacity-20 mb-4"></div>
-                      <p className="text-[10px] uppercase tracking-[0.3em] opacity-40 italic">Restricted Collection</p>
+                      <p className="text-[10px] uppercase tracking-[0.3em] opacity-40 italic">HwaWang Archive</p>
                     </header>
                     <section className="max-w-[700px] mx-auto">
                       {stories.map(s => (
