@@ -104,7 +104,7 @@ export default function App() {
             </AnimatePresence>
           </motion.div>
         ) : (
-          // 3. 网站本体
+          // 3. 网站主体
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/30 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
@@ -154,7 +154,6 @@ export default function App() {
                       <h2 className="text-4xl font-light mb-8 leading-tight">{currentStory.title}</h2>
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 space-y-1 font-sans font-bold">
                         <p>作者: {currentStory.author}</p>
-                        {/* --- 修正：加回了这一行 --- */}
                         <p>时间: {currentStory.date.replace(/-/g, '.')}</p>
                         <p>字数: {currentStory.wordCount?.toLocaleString() || '...'} (自动识别)</p>
                         <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-4 underline text-current">原链接 →</a>
@@ -168,12 +167,17 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            
-           <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
-  <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-6">
-    <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有</p>
-    <p>站内内容仅供个人学习交流，如有侵权请联系删除，严禁二次转载或用于任何商业用途。</p>
-    <p>如有疑问联系微博：@恋花症-</p>
-  </div>
-  <p className="mt-4 italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
-</footer>
+            <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
+              <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-6">
+                <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
+                <p>站内内容仅供个人学习交流，如有侵权请联系删除，严禁二次转载或用于任何商业用途。</p>
+                <p>如有疑问联系微博：@恋花症-</p>
+              </div>
+              <p className="mt-4 italic font-sans tracking-[0.2em]">© 2026 HW ARCHIVE. 版权所有。</p>
+            </footer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
