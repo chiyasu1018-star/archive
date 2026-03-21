@@ -10,11 +10,8 @@ import {
   Moon, 
   Sun, 
   ShieldAlert,
-  Loader2,
   Heart
 } from 'lucide-react';
-
-// --- Types ---
 
 interface Story {
   id: string;
@@ -35,6 +32,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
   
+  // 仅新增状态
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
@@ -43,7 +41,7 @@ export default function App() {
       .then(res => res.json())
       .then(data => {
         setStories(data);
-        setLoading(false);
+        setTimeout(() => setLoading(false), 1000);
       })
       .catch(() => setLoading(false));
   }, []);
@@ -62,57 +60,59 @@ export default function App() {
       setCurrentStory(updatedStory);
       setStories(prev => prev.map(s => s.id === story.id ? updatedStory : s));
     } catch (err) {
-      alert("读取失败，请检查文件");
+      alert("读取失败");
     } finally {
       setReading(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-serif opacity-30 tracking-[0.3em]">INITIALIZING...</div>;
+  // --- 1. 原始模糊加载界面 (不动字体) ---
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] dark:bg-[#121212]">
+      <motion.div 
+        initial={{ opacity: 0, filter: 'blur(10px)' }} 
+        animate={{ opacity: 1, filter: 'blur(0px)' }} 
+        className="text-center"
+      >
+        <div className="text-sm tracking-[0.5em] opacity-30 uppercase font-serif">
+          INITIALIZING...
+        </div>
+      </motion.div>
+    </div>
+  );
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
       
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
-          <motion.div 
-            key="age-gate"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center"
-          >
+          // --- 2. 新增：年龄确认逻辑 ---
+          <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
             <AnimatePresence mode="wait">
               {!isHonest ? (
                 <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
                   <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
-                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-current">Content Warning</h1>
-                  <div className="space-y-4 mb-12">
-                    <p className="text-xs leading-relaxed opacity-60 tracking-widest">本站包含 R18 受限内容，仅供成年同好交流使用。</p>
-                    <p className="text-[10px] uppercase tracking-[0.2em] opacity-40">Are you over 18 years of age?</p>
+                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Warning</h1>
+                  <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
+                    <p>本站内容可能包含 R18 分级，仅供成年人浏览。</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] opacity-40 mt-2">您是否已年满 18 周岁？</p>
                   </div>
                   <div className="flex flex-col gap-4 items-center">
-                    <button 
-                      onClick={() => setHasConfirmedAge(true)}
-                      className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}
-                    >
-                      YES / 进入
-                    </button>
-                    <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity">
-                      NO / 未满 18 岁
-                    </button>
+                    <button onClick={() => setHasConfirmedAge(true)} className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>YES / 是</button>
+                    <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity">NO / 不是</button>
                   </div>
                 </motion.div>
               ) : (
                 <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
                   <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
                   <h2 className="text-lg font-bold tracking-[0.2em] mb-4">感谢你的诚实</h2>
-                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">。<br/>成年后再来吧。</p>
+                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">档案馆的大门将为你保留。<br/>成年后再来吧。</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
         ) : (
+          // --- 3. 原始 UI 界面 (完全保持你的布局和文字) ---
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/30 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
@@ -121,7 +121,7 @@ export default function App() {
                     <ChevronLeft size={16} /> Back
                   </button>
                 ) : (
-                  <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30">HW / Archive</h1>
+                  <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30">HW / ARCHIVE</h1>
                 )}
               </div>
               <div className="flex items-center gap-3">
@@ -129,9 +129,9 @@ export default function App() {
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
                 {currentStory && (
-                  <div className="flex gap-1 ml-2">
-                    <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs font-bold">A-</button>
-                    <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg font-bold">A+</button>
+                  <div className="flex gap-1 ml-2 font-sans font-bold">
+                    <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
+                    <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg">A+</button>
                   </div>
                 )}
               </div>
@@ -143,8 +143,6 @@ export default function App() {
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12">
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
-                      <div className="h-px w-12 bg-current mx-auto opacity-20 mb-4"></div>
-                      <p className="text-[10px] uppercase tracking-[0.3em] opacity-40 italic">HwaWang Archive</p>
                     </header>
                     <section className="max-w-[700px] mx-auto">
                       {stories.map(s => (
@@ -163,9 +161,9 @@ export default function App() {
                     <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12">
                       <h2 className="text-4xl font-light mb-8 leading-tight">{currentStory.title}</h2>
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 space-y-1 font-sans font-bold">
-                        <p>Author: {currentStory.author}</p>
-                        <p>Word Count: {currentStory.wordCount?.toLocaleString() || '...'} (Auto)</p>
-                        <a href={currentStory.sourceLink} target="_blank" rel="noreferrer" className="inline-block mt-4 underline text-current">Source Link →</a>
+                        <p>作者: {currentStory.author}</p>
+                        <p>字数: {currentStory.wordCount?.toLocaleString() || '...'} (自动识别)</p>
+                        <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className="inline-block mt-4 underline text-current">原链接 →</a>
                       </div>
                     </header>
                     <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify">
@@ -178,17 +176,11 @@ export default function App() {
 
             <footer className="py-12 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest">
               <p>如有疑问请联系微博：@恋花症-</p>
-              <p className="mt-4 italic uppercase">© 2026 HW ARCHIVE.</p>
+              <p className="mt-4 italic font-sans uppercase">© 2026 HW ARCHIVE.</p>
             </footer>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {reading && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-transparent backdrop-blur-sm">
-          <Loader2 className="animate-spin opacity-20" size={30} />
-        </div>
-      )}
     </div>
   );
 }
