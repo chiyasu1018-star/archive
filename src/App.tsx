@@ -255,9 +255,24 @@ export default function App() {
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
-                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify mb-24 font-serif">
-                          {currentStory.content}
-                        </article>
+                        {/* --- 修改后的正文渲染部分：支持 B 站视频解析 --- */}
+<article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9', whiteSpace: 'pre-wrap' }} className="text-justify mb-24 font-serif">
+  {currentStory.content?.split(/(\[bvid:[a-zA-Z0-9]+\])/g).map((part, index) => {
+    if (part.startsWith('[bvid:')) {
+      const bvid = part.replace('[bvid:', '').replace(']', '');
+      return (
+        <div key={index} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-2xl bg-black">
+          <iframe 
+            src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} 
+            className="w-full h-full border-none"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  })}
+</article>
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
                            <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
