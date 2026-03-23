@@ -3,8 +3,8 @@ import { Octokit } from "octokit";
 import { ChevronLeft, Send, Key, FileText } from 'lucide-react';
 
 // 配置你的 GitHub 信息
-const REPO_OWNER = "你的GitHub用户名"; // 比如 "myname"
-const REPO_NAME = "你的仓库名";      // 比如 "my-archive"
+const REPO_OWNER = "chiyasu1018star"; // 比如 "myname"
+const REPO_NAME = "archive";      // 比如 "my-archive"
 const BRANCH = "main";             // 你的分支名
 
 export default function Admin({ onBack }: { onBack: () => void }) {
