@@ -274,7 +274,6 @@ export default function App() {
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
-                <p className="font-bold text-red-500/50">请勿二次搬运。禁止用于任何商业用途。</p>
                 <p className="font-bold">联系微博：<span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span></p>
               </div>
               <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none">© 2026 HW ARCHIVE.</p>
