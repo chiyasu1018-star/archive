@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
-import { ChevronLeft, Send, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, Minus, Video } from 'lucide-react';
+import { ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, Minus, Video } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
@@ -23,6 +23,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchStories = async () => {
     try {
@@ -34,14 +35,25 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { if (view === 'list') fetchStories(); }, [view]);
 
-  // 快捷插入标签函数
-  const insertTag = (tag: string) => {
-    setContent(prev => prev + tag);
+  const insertTag = (openTag: string, closeTag: string = '', placeholder: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    let textToInsert = selectedText ? openTag + selectedText + closeTag : openTag + placeholder + closeTag;
+    const cursorOffset = selectedText ? openTag.length + selectedText.length : openTag.length + placeholder.length;
+    const newContent = content.substring(0, start) + textToInsert + content.substring(end);
+    setContent(newContent);
+    setTimeout(() => {
+      textarea.selectionStart = start + openTag.length;
+      textarea.selectionEnd = start + cursorOffset;
+      textarea.focus();
+    }, 0);
   };
 
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
-    setIsPublishing(true);
-    setStatus('正在获取正文...');
+    setIsPublishing(true); setStatus('正在获取正文...');
     try {
       const octokit = new Octokit({ auth: token });
       const { data: fileData } = await octokit.rest.repos.getContent({
@@ -67,8 +79,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const fileName = editingFileName || `story_${storyId}.txt`;
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-        message: `Commit: ${title}`,
-        content: btoa(unescape(encodeURIComponent(content))),
+        message: `Commit: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
         sha: editingFileSha || undefined, branch: BRANCH
       });
       const { data: indexFile } = await octokit.rest.repos.getContent({
@@ -98,7 +109,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         sha: indexFile.sha, message: `Update: ${title}`,
         content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), branch: BRANCH
       });
-      setStatus('成功！一分钟后刷新。');
+      setStatus('成功！Vercel 部署中...');
       if (!editingId) { setContent(''); setChapterTitle(''); }
     } catch (err: any) { setStatus(`错误: ${err.message}`); }
     finally { setIsPublishing(false); }
@@ -124,7 +135,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <h2 className="text-2xl font-black mb-6">管理 / Manage</h2>
             {stories.map(s => (
                 <div key={s.id} className="p-5 border border-black/10 dark:border-white/10 rounded-xl space-y-3 bg-white/50 dark:bg-black/20 text-slate-900 dark:text-white">
-                    <div className="flex justify-between items-center text-lg font-bold"><span>{s.title}</span><span className="text-xs opacity-40">{s.author}</span></div>
+                    <div className="flex justify-between items-center text-lg font-bold"><div><span>{s.title}</span><span className="text-xs opacity-40 block">{s.date}</span></div><span>{s.author}</span></div>
                     <div className="flex gap-2 flex-wrap pt-2">
                         {s.chapters ? s.chapters.map((c: any, i: number) => (
                             <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1 bg-blue-500/10 text-blue-600 rounded text-xs border border-blue-500/20">编辑: {c.title}</button>
@@ -138,39 +149,30 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       ) : (
         <div className="space-y-6">
           <h2 className="text-2xl font-black">{editingId ? '编辑 / Edit' : '发表 / New'}</h2>
-          
           <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-2xl font-bold focus:border-blue-500 outline-none transition-colors placeholder:opacity-20" placeholder="总标题" />
-
           <div className="grid grid-cols-2 gap-6">
             <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none" placeholder="作者" />
             <input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none" />
           </div>
-
           <div className="grid grid-cols-2 gap-6">
             <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-lg outline-none border border-blue-500/20 text-blue-700 dark:text-blue-300" placeholder="章节标题 (选填)" />
             <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none" placeholder="原链接" />
           </div>
-
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => insertTag('**加粗文字**')} title="加粗" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Bold size={16}/></button>
-              <button onClick={() => insertTag('*斜体文字*')} title="斜体" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Italic size={16}/></button>
-              <button onClick={() => insertTag('\n[quote]在此输入灰色引用内容[/quote]\n')} title="引用" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Quote size={16}/></button>
-              <button onClick={() => insertTag('\n[bubble:L]左侧对话气泡[/bubble]\n')} title="左气泡" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><MessageSquare size={16}/></button>
-              <button onClick={() => insertTag('\n[bubble:R]右侧对话气泡[/bubble]\n')} title="右气泡" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors text-blue-500"><MessageSquare size={16}/></button>
-              <button onClick={() => insertTag('\n---\n')} title="分割线" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Minus size={16}/></button>
-              <button onClick={() => insertTag('\n[bvid:在此粘贴BV号]\n')} title="视频" className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Video size={16}/></button>
+              <button onClick={() => insertTag('**', '**', '在此输入加粗文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Bold size={16}/></button>
+              <button onClick={() => insertTag('*', '*', '在此输入斜体文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Italic size={16}/></button>
+              <button onClick={() => insertTag('\n[quote]', '[/quote]\n', '在此输入灰色引用内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Quote size={16}/></button>
+              <button onClick={() => insertTag('\n[bubble:L]', '[/bubble]\n', '左对话')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><MessageSquare size={16}/></button>
+              <button onClick={() => insertTag('\n[bubble:R]', '[/bubble]\n', '右对话')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors text-blue-500"><MessageSquare size={16}/></button>
+              <button onClick={() => insertTag('\n---\n')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Minus size={16}/></button>
+              <button onClick={() => insertTag('\n[bvid:', ']\n', 'BV号')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Video size={16}/></button>
             </div>
-            <textarea value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base" placeholder="在此粘贴正文..." />
+            <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base" placeholder="在此粘贴正文..." />
           </div>
-
-          <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-[0.3em] uppercase bg-blue-600 text-white shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
+          <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-[0.3em] uppercase bg-blue-600 text-white shadow-xl">
             {isPublishing ? status : editingId ? 'Update / 更新' : 'Publish / 发布'}
           </button>
-          
-          {editingId && (
-            <button onClick={() => { setEditingId(null); setContent(''); setTitle(''); setChapterTitle(''); }} className="w-full text-[10px] font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">取消编辑</button>
-          )}
         </div>
       )}
     </div>
