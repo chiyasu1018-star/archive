@@ -15,7 +15,6 @@ import {
   BookOpen 
 } from 'lucide-react';
 
-// 引入后台组件
 import Admin from './Admin';
 
 interface Chapter {
@@ -41,15 +40,11 @@ export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [showChapterList, setShowChapterList] = useState(false); 
-  
   const [fontSize, setFontSize] = useState(18); 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
-  
-  // 确保默认为 false
   const [isAdmin, setIsAdmin] = useState(false);
-  
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
@@ -75,9 +70,7 @@ export default function App() {
               const text = await res.text();
               const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
               return { ...ch, autoWordCount: count };
-            } catch {
-              return { ...ch, autoWordCount: 0 };
-            }
+            } catch { return { ...ch, autoWordCount: 0 }; }
           })
         );
         setCurrentStory(prev => prev ? { ...prev, chapters: updatedChapters } : null);
@@ -102,11 +95,8 @@ export default function App() {
       });
       setShowChapterList(false); 
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      alert("读取失败");
-    } finally {
-      setReading(false);
-    }
+    } catch (err) { alert("读取失败"); } 
+    finally { setReading(false); }
   };
 
   const handleBack = () => {
@@ -120,14 +110,9 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // 如果处于管理模式，显示后台
-  if (isAdmin) {
-    return <Admin onBack={() => setIsAdmin(false)} />;
-  }
+  if (isAdmin) return <Admin onBack={() => setIsAdmin(false)} />;
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5] dark:bg-[#121212]">
@@ -194,7 +179,7 @@ export default function App() {
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12">
-                      <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
+                      <h1 className="text-3xl font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">花汪档案馆</h1>
                     </header>
                     <section className="max-w-[700px] mx-auto">
                       {stories.map(s => (
@@ -204,9 +189,8 @@ export default function App() {
                              {s.chapters && <BookOpen size={14} className="opacity-30" />}
                           </div>
                           <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans">
-                            {/* 这里的 s.author 已经修复 */}
                             <span>{s.author}</span>
-                            <span>{s.date.replace(/-/g, '.')}</span>
+                            <span>{s.date?.replace(/-/g, '.')}</span>
                             {s.chapters && <span>{s.chapters.length} 章节</span>}
                           </div>
                         </motion.button>
@@ -235,7 +219,7 @@ export default function App() {
                   </motion.div>
                 ) : (
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto">
-                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans">
+                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans text-[#333] dark:text-white">
                       <h2 className="text-4xl font-serif font-light mb-8 leading-tight">
                         {currentStory.title}
                         {currentStory.currentChapterTitle && (
@@ -244,7 +228,7 @@ export default function App() {
                       </h2>
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-40 space-y-1 font-bold">
                         <p>作者: {currentStory.author}</p>
-                        <p>时间: {currentStory.date.replace(/-/g, '.')}</p>
+                        <p>时间: {currentStory.date?.replace(/-/g, '.')}</p>
                         <p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p>
                       </div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
@@ -253,52 +237,28 @@ export default function App() {
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
-                       {/* --- 无敌版渲染引擎：支持跨行标签和自动清理 --- */}
-<article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif">
-  {(() => {
-    let rawContent = currentStory.content || '';
-
-    // 1. 先全局处理分割线
-    rawContent = rawContent.replace(/^---$/gm, '<hr class="my-12 border-t border-black/10 dark:border-white/10" />');
-
-    // 2. 处理 B站视频
-    rawContent = rawContent.replace(/\[bvid:([a-zA-Z0-9]+)\]/g, (match, bvid) => {
-      return `<div class="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src="//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0" class="w-full h-full border-none" allowFullScreen></iframe></div>`;
-    });
-
-    // 3. 增强版引用解析 (允许跨行，且会自动清理残留标签)
-    rawContent = rawContent.replace(/\[quote\]([\s\S]*?)\[\/quote\]/g, (match, inner) => {
-      return `<blockquote class="my-6 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-white/5 py-2">${inner.trim()}</blockquote>`;
-    });
-
-    // 4. 对话气泡解析 (左/右)
-    rawContent = rawContent.replace(/\[bubble:L\]([\s\S]*?)\[\/bubble\]/g, (match, inner) => {
-      return `<div class="flex justify-start my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none">${inner.trim()}</div></div>`;
-    });
-    rawContent = rawContent.replace(/\[bubble:R\]([\s\S]*?)\[\/bubble\]/g, (match, inner) => {
-      return `<div class="flex justify-end my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-[#607d8b] text-white rounded-tr-none shadow-sm">${inner.trim()}</div></div>`;
-    });
-
-    // 5. 基础行内格式 (加粗/斜体)
-    rawContent = rawContent.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
-    rawContent = rawContent.replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-
-    // 6. 最后把处理好的内容按行显示，并过滤掉残留的孤儿标签
-    return rawContent.split('\n').map((line, idx) => {
-      // 如果这一行只剩下残留的标签，直接不显示它
-      const cleanLine = line.replace(/\[\/?quote\]/g, '').replace(/\[\/?bubble(:[LR])?\]/g, '');
-      if (!cleanLine && !line.includes('<')) return <br key={idx} />;
-      
-      return (
-        <div 
-          key={idx} 
-          className={cleanLine.includes('<') ? "" : "mb-4 min-h-[1.5em]"} 
-          dangerouslySetInnerHTML={{ __html: line.includes('<') ? line : (formattedLine || '&nbsp;') }} 
-        />
-      );
-    });
-  })()}
-</article>
+                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
+                          {(() => {
+                            let raw = currentStory.content || '';
+                            // 处理跨行标签
+                            raw = raw.replace(/\[quote\]([\s\S]*?)\[\/quote\]/g, (_, inner) => `<blockquote class="my-6 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-white/5 py-3 rounded-r-lg">${inner.trim()}</blockquote>`);
+                            raw = raw.replace(/\[bubble:L\]([\s\S]*?)\[\/bubble\]/g, (_, inner) => `<div class="flex justify-start my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none shadow-sm">${inner.trim()}</div></div>`);
+                            raw = raw.replace(/\[bubble:R\]([\s\S]*?)\[\/bubble\]/g, (_, inner) => `<div class="flex justify-end my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-[#607d8b] text-white rounded-tr-none shadow-sm">${inner.trim()}</div></div>`);
+                            raw = raw.replace(/\[bvid:([a-zA-Z0-9]+)\]/g, (_, bvid) => `<div class="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src="//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0" class="w-full h-full border-none" allowFullScreen></iframe></div>`);
+                            raw = raw.replace(/^---$/gm, '<hr class="my-12 border-t border-black/10 dark:border-white/10" />');
+                            
+                            return raw.split('\n').map((line, idx) => {
+                               // 基础排版
+                               let processed = line;
+                               if (!line.includes('<')) {
+                                   processed = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+                                                   .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+                               }
+                               const isEmpty = !line.trim();
+                               return <p key={idx} className={line.includes('<') ? "" : "mb-4 min-h-[1.5em]"} dangerouslySetInnerHTML={{ __html: processed || '&nbsp;' }} />;
+                            });
+                          })()}
+                        </article>
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
                            <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
@@ -314,14 +274,10 @@ export default function App() {
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
+                <p className="font-bold text-red-500/50">请勿二次搬运。禁止用于任何商业用途。</p>
                 <p className="font-bold">联系微博：<span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span></p>
               </div>
-              <p 
-                onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} 
-                className="italic font-sans tracking-[0.2em] cursor-default select-none"
-              >
-                © 2026 HW ARCHIVE.
-              </p>
+              <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none">© 2026 HW ARCHIVE.</p>
             </footer>
           </motion.div>
         )}
