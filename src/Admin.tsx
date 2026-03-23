@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Octokit } from "octokit";
-import { ChevronLeft, Send, Key, Edit3, List } from 'lucide-react';
+import { ChevronLeft, Send, Key, Edit3, List, Calendar } from 'lucide-react';
 
-// 配置你的 GitHub 信息
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
 const BRANCH = "main";             
@@ -18,6 +17,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
+  const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]); // 新增：发布日期状态，默认今天
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
   const [content, setContent] = useState('');
@@ -25,7 +25,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // 获取文章列表
   const fetchStories = async () => {
     try {
       const res = await fetch('/stories/index.json');
@@ -36,7 +35,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { if (view === 'list') fetchStories(); }, [view]);
 
-  // 编辑已有文章逻辑
+  // 编辑逻辑
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     setIsPublishing(true);
     setStatus('正在获取正文...');
@@ -50,6 +49,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       
       setTitle(story.title);
       setAuthor(story.author);
+      setPublishDate(story.date || new Date().toISOString().split('T')[0]); // 加载原日期
       setSourceLink(story.sourceLink);
       setChapterTitle(cTitle);
       setContent(text);
@@ -63,7 +63,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     finally { setIsPublishing(false); }
   };
 
-  // 发布/更新逻辑
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写完整内容");
     setIsPublishing(true);
@@ -74,6 +73,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}.txt`;
       
+      // 1. 保存 .txt 文件
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
         message: `Commit: ${title}`,
@@ -82,6 +82,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         branch: BRANCH
       });
 
+      // 2. 更新 index.json
       const { data: indexFile } = await octokit.rest.repos.getContent({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
       });
@@ -92,18 +93,20 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           const existingIndex = indexData.findIndex((s: any) => s.title === title && s.author === author);
           if (chapterTitle && existingIndex !== -1) {
             const story = indexData[existingIndex];
+            story.date = publishDate; // 更新总日期
             if (!story.chapters) { story.chapters = [{ title: "第 1 节", fileName: story.fileName }]; delete story.fileName; }
             story.chapters.push({ title: chapterTitle, fileName: fileName });
           } else if (chapterTitle) {
-            indexData = [{ id: storyId, title, author, date: new Date().toISOString().split('T')[0], sourceLink, chapters: [{ title: chapterTitle, fileName: fileName }] }, ...indexData];
+            indexData = [{ id: storyId, title, author, date: publishDate, sourceLink, chapters: [{ title: chapterTitle, fileName: fileName }] }, ...indexData];
           } else {
-            indexData = [{ id: storyId, title, author, date: new Date().toISOString().split('T')[0], fileName, sourceLink }, ...indexData];
+            indexData = [{ id: storyId, title, author, date: publishDate, fileName, sourceLink }, ...indexData];
           }
       } else {
           const idx = indexData.findIndex((s: any) => s.id === editingId);
           if (idx !== -1) {
               indexData[idx].title = title;
               indexData[idx].author = author;
+              indexData[idx].date = publishDate; // 允许修改已有日期
               indexData[idx].sourceLink = sourceLink;
           }
       }
@@ -117,7 +120,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         branch: BRANCH
       });
 
-      setStatus('成功！Vercel 部署中，请等一分钟再刷新。');
+      setStatus('成功！Vercel 部署中...');
       if (!editingId) { setContent(''); setChapterTitle(''); }
     } catch (err: any) { setStatus(`错误: ${err.message}`); }
     finally { setIsPublishing(false); }
@@ -151,10 +154,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             {stories.map(s => (
                 <div key={s.id} className="p-5 border border-black/10 dark:border-white/10 rounded-xl space-y-3 bg-white/50 dark:bg-black/20 text-slate-900 dark:text-white">
                     <div className="flex justify-between items-center">
-                        <span className="font-bold text-lg">{s.title}</span>
+                        <div>
+                            <span className="font-bold text-lg block">{s.title}</span>
+                            <span className="text-[10px] opacity-40 uppercase tracking-tighter">{s.date}</span>
+                        </div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.author}</span>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap pt-2">
                         {s.chapters ? s.chapters.map((c: any, i: number) => (
                             <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 rounded text-xs transition-colors border border-blue-500/20">
                                 编辑: {c.title}
@@ -179,23 +185,31 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Author / 作者名</label>
-              <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none border border-transparent focus:border-blue-500" placeholder="作者" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Author / 作者</label>
+              <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none border border-transparent focus:border-blue-500" placeholder="作者名" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chapter / 章节标题</label>
-              <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-lg outline-none border border-blue-500/20 text-blue-700 dark:text-blue-300" placeholder="单篇留空" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date / 发布日期</label>
+              <input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none border border-transparent focus:border-blue-500 font-sans" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chapter / 章节标题 (选填)</label>
+                <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-lg outline-none border border-blue-500/20 text-blue-700 dark:text-blue-300" placeholder="例如: 第一章" />
+            </div>
+            <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Link / 原链接</label>
+                <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none" placeholder="https://..." />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Source Link / 原链接</label>
-            <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-lg outline-none" placeholder="https://..." />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Content / 正文内容</label>
-            <textarea value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base" placeholder="在此粘贴内容... [bvid:xxx]" />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans flex items-center gap-2">
+               Content / 正文内容 <span className="text-[8px] opacity-40 font-normal underline">支持 [bvid:BV号] 插入视频</span>
+            </label>
+            <textarea value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base" placeholder="在此粘贴内容..." />
           </div>
 
           <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-[0.3em] uppercase bg-blue-600 text-white shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50">
@@ -203,7 +217,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           </button>
 
           {editingId && (
-            <button onClick={() => { setEditingId(null); setContent(''); setTitle(''); setChapterTitle(''); }} className="w-full text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <button onClick={() => { setEditingId(null); setContent(''); setTitle(''); setChapterTitle(''); setPublishDate(new Date().toISOString().split('T')[0]); }} className="w-full text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
               Cancel Edit / 取消编辑并切换回新建模式
             </button>
           )}
