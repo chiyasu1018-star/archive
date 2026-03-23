@@ -253,31 +253,52 @@ export default function App() {
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
-                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif">
-                          {currentStory.content?.split('\n').map((line, lineIdx) => {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine === '---') return <hr key={lineIdx} className="my-12 border-t border-black/10 dark:border-white/10" />;
-                            if (line.includes('[quote]') && line.includes('[/quote]')) {
-                              const content = line.replace('[quote]', '').replace('[/quote]', '');
-                              return <blockquote key={lineIdx} className="my-6 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400">{content}</blockquote>;
-                            }
-                            if (line.includes('[bubble:')) {
-                              const isRight = line.includes('[bubble:R]');
-                              const content = line.replace(/\[bubble:[LR]\]/, '').replace('[/bubble]', '');
-                              return (
-                                <div key={lineIdx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-6`}>
-                                  <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>{content}</div>
-                                </div>
-                              );
-                            }
-                            if (line.includes('[bvid:')) {
-                              const bvid = line.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
-                              if (bvid) return (<div key={lineIdx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen /></div>);
-                            }
-                            const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>').replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-                            return (<p key={lineIdx} className="mb-4 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: formattedLine || '&nbsp;' }} />);
-                          })}
-                        </article>
+                       {/* --- 无敌版渲染引擎：支持跨行标签和自动清理 --- */}
+<article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif">
+  {(() => {
+    let rawContent = currentStory.content || '';
+
+    // 1. 先全局处理分割线
+    rawContent = rawContent.replace(/^---$/gm, '<hr class="my-12 border-t border-black/10 dark:border-white/10" />');
+
+    // 2. 处理 B站视频
+    rawContent = rawContent.replace(/\[bvid:([a-zA-Z0-9]+)\]/g, (match, bvid) => {
+      return `<div class="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src="//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0" class="w-full h-full border-none" allowFullScreen></iframe></div>`;
+    });
+
+    // 3. 增强版引用解析 (允许跨行，且会自动清理残留标签)
+    rawContent = rawContent.replace(/\[quote\]([\s\S]*?)\[\/quote\]/g, (match, inner) => {
+      return `<blockquote class="my-6 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-white/5 py-2">${inner.trim()}</blockquote>`;
+    });
+
+    // 4. 对话气泡解析 (左/右)
+    rawContent = rawContent.replace(/\[bubble:L\]([\s\S]*?)\[\/bubble\]/g, (match, inner) => {
+      return `<div class="flex justify-start my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none">${inner.trim()}</div></div>`;
+    });
+    rawContent = rawContent.replace(/\[bubble:R\]([\s\S]*?)\[\/bubble\]/g, (match, inner) => {
+      return `<div class="flex justify-end my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-[#607d8b] text-white rounded-tr-none shadow-sm">${inner.trim()}</div></div>`;
+    });
+
+    // 5. 基础行内格式 (加粗/斜体)
+    rawContent = rawContent.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
+    rawContent = rawContent.replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+
+    // 6. 最后把处理好的内容按行显示，并过滤掉残留的孤儿标签
+    return rawContent.split('\n').map((line, idx) => {
+      // 如果这一行只剩下残留的标签，直接不显示它
+      const cleanLine = line.replace(/\[\/?quote\]/g, '').replace(/\[\/?bubble(:[LR])?\]/g, '');
+      if (!cleanLine && !line.includes('<')) return <br key={idx} />;
+      
+      return (
+        <div 
+          key={idx} 
+          className={cleanLine.includes('<') ? "" : "mb-4 min-h-[1.5em]"} 
+          dangerouslySetInnerHTML={{ __html: line.includes('<') ? line : (formattedLine || '&nbsp;') }} 
+        />
+      );
+    });
+  })()}
+</article>
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
                            <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
