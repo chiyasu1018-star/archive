@@ -237,28 +237,74 @@ export default function App() {
                        <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
+                        {/* --- 升级版渲染引擎：支持跨行标签 --- */}
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
                           {(() => {
-                            let raw = currentStory.content || '';
-                            // 处理跨行标签
-                            raw = raw.replace(/\[quote\]([\s\S]*?)\[\/quote\]/g, (_, inner) => `<blockquote class="my-6 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-white/5 py-3 rounded-r-lg">${inner.trim()}</blockquote>`);
-                            raw = raw.replace(/\[bubble:L\]([\s\S]*?)\[\/bubble\]/g, (_, inner) => `<div class="flex justify-start my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none shadow-sm">${inner.trim()}</div></div>`);
-                            raw = raw.replace(/\[bubble:R\]([\s\S]*?)\[\/bubble\]/g, (_, inner) => `<div class="flex justify-end my-6"><div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm bg-[#607d8b] text-white rounded-tr-none shadow-sm">${inner.trim()}</div></div>`);
-                            raw = raw.replace(/\[bvid:([a-zA-Z0-9]+)\]/g, (_, bvid) => `<div class="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src="//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0" class="w-full h-full border-none" allowFullScreen></iframe></div>`);
-                            raw = raw.replace(/^---$/gm, '<hr class="my-12 border-t border-black/10 dark:border-white/10" />');
+                            const raw = currentStory.content || '';
+                            // 1. 使用正则表达式拆分全文，保留匹配到的块标签（[quote], [bubble], [bvid], ---）
+                            // 这个正则会识别跨行的 [quote] 和 [bubble] 内容
+                            const parts = raw.split(/(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm);
                             
-                            return raw.split('\n').map((line, idx) => {
-                               // 基础排版
-                               let processed = line;
-                               if (!line.includes('<')) {
-                                   processed = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
-                                                   .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-                               }
-                               const isEmpty = !line.trim();
-                               return <p key={idx} className={line.includes('<') ? "" : "mb-4 min-h-[1.5em]"} dangerouslySetInnerHTML={{ __html: processed || '&nbsp;' }} />;
+                            return parts.map((part, idx) => {
+                                if (!part) return null;
+
+                                // A. 处理 [quote] 块 (支持跨行)
+                                if (part.startsWith('[quote]')) {
+                                    const inner = part.replace('[quote]', '').replace('[/quote]', '').trim();
+                                    return (
+                                        <blockquote key={idx} className="my-8 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-4 rounded-r-lg">
+                                            {inner.split('\n').map((l, i) => <p key={i} className="mb-2 last:mb-0">{l}</p>)}
+                                        </blockquote>
+                                    );
+                                }
+
+                                // B. 处理 [bubble] 气泡 (支持跨行)
+                                if (part.startsWith('[bubble:')) {
+                                    const isRight = part.includes('[bubble:R]');
+                                    const inner = part.replace(/\[bubble:[LR]\]/, '').replace('[/bubble]', '').trim();
+                                    return (
+                                        <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-6`}>
+                                            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none shadow-sm'}`}>
+                                                {inner.split('\n').map((l, i) => <p key={i} className="mb-1 last:mb-0">{l}</p>)}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // C. 处理 [bvid] 视频
+                                if (part.startsWith('[bvid:')) {
+                                    const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
+                                    return (
+                                        <div key={idx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black">
+                                            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen />
+                                        </div>
+                                    );
+                                }
+
+                                // D. 处理分割线
+                                if (part.trim() === '---') {
+                                    return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
+                                }
+
+                                // E. 处理普通文字段落
+                                return part.split('\n').map((line, lIdx) => {
+                                    let processed = line;
+                                    // 基础行内排版（加粗和斜体）
+                                    processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+                                                         .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+                                    
+                                    return (
+                                        <p 
+                                            key={`${idx}-${lIdx}`} 
+                                            className="mb-4 min-h-[1.5em]" 
+                                            dangerouslySetInnerHTML={{ __html: processed || '&nbsp;' }} 
+                                        />
+                                    );
+                                });
                             });
                           })()}
                         </article>
+
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
                            <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
