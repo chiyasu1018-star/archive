@@ -38,23 +38,40 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   useEffect(() => { if (view === 'list') fetchStories(); }, [view]);
 
   // --- 智能插入标签 ---
-  const insertTag = (openTag: string, closeTag: string = '', placeholder: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-    let textToInsert = selectedText ? openTag + selectedText + closeTag : openTag + placeholder + closeTag;
-    const cursorOffset = selectedText ? openTag.length + selectedText.length : openTag.length + placeholder.length;
-    const newContent = content.substring(0, start) + textToInsert + content.substring(end);
-    setContent(newContent);
-    setTimeout(() => {
-      textarea.selectionStart = start + openTag.length;
-      textarea.selectionEnd = start + cursorOffset;
-      textarea.focus();
-    }, 0);
-  };
+// 找到 Admin.tsx 里的 insertTag 函数，替换为这个：
+const insertTag = (openTag: string, closeTag: string = '', placeholder: string = '') => {
+  const textarea = textareaRef.current;
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selectedText = content.substring(start, end);
 
+  // 针对块状标签（引用、气泡、视频、分割线）自动换行
+  const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('bvid') || openTag.includes('---');
+  
+  let textToInsert = '';
+  let cursorOffset = 0;
+
+  if (isBlock) {
+      // 块级标签前后强制加回车，确保独立
+      const prefix = content.charAt(start - 1) === '\n' || start === 0 ? '' : '\n';
+      const middle = selectedText || placeholder;
+      textToInsert = `${prefix}${openTag}\n${middle}\n${closeTag}\n`;
+      cursorOffset = prefix.length + openTag.length + 1 + middle.length;
+  } else {
+      // 行内标签（加粗、斜体）保持原样
+      textToInsert = openTag + (selectedText || placeholder) + closeTag;
+      cursorOffset = openTag.length + (selectedText || placeholder).length;
+  }
+
+  const newContent = content.substring(0, start) + textToInsert + content.substring(end);
+  setContent(newContent);
+  setTimeout(() => {
+    textarea.selectionStart = start + (isBlock ? openTag.length + (content.charAt(start - 1) === '\n' || start === 0 ? 1 : 2) : openTag.length);
+    textarea.selectionEnd = start + cursorOffset;
+    textarea.focus();
+  }, 0);
+};
   // --- 核心：续传新章节逻辑 ---
   const handleAddChapter = (story: any) => {
     setEditingId(null); // 这是新文件
