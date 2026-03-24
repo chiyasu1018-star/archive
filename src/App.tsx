@@ -87,12 +87,7 @@ export default function App() {
       const response = await fetch(`/stories/${fileName}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
-      setCurrentStory({ 
-        ...parentStory, 
-        content: text, 
-        wordCount: count,
-        currentChapterTitle: chapterTitle 
-      });
+      setCurrentStory({ ...parentStory, content: text, wordCount: count, currentChapterTitle: chapterTitle });
       setShowChapterList(false); 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) { alert("读取失败"); } 
@@ -129,7 +124,7 @@ export default function App() {
               {!isHonest ? (
                 <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
                   <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
-                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
+                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-[#333] dark:text-white">Content Notice</h1>
                   <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
                     <p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。</p>
                     <p>继续访问即代表您已年满 18 周岁。</p>
@@ -166,7 +161,7 @@ export default function App() {
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
                 {currentStory?.content && (
-                  <div className="flex gap-1 ml-2 font-sans font-bold">
+                  <div className="flex gap-1 ml-2 font-sans font-bold text-[#333] dark:text-white">
                     <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
                     <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg">A+</button>
                   </div>
@@ -185,10 +180,10 @@ export default function App() {
                       {stories.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-black/5 hover:border-black/20'}`}>
                           <div className="flex items-baseline gap-3">
-                             <h3 className="text-xl font-medium mb-1">{s.title}</h3>
+                             <h3 className="text-xl font-medium mb-1 text-[#333] dark:text-white">{s.title}</h3>
                              {s.chapters && <BookOpen size={14} className="opacity-30" />}
                           </div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans">
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans text-[#333] dark:text-white">
                             <span>{s.author}</span>
                             <span>{s.date?.replace(/-/g, '.')}</span>
                             {s.chapters && <span>{s.chapters.length} 章节</span>}
@@ -200,17 +195,17 @@ export default function App() {
                 ) : showChapterList ? (
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
                     <div className="mb-12 text-center">
-                       <h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2>
-                       <p className="text-xs opacity-40 tracking-widest uppercase font-sans">Directory / 目录</p>
+                       <h2 className="text-2xl font-bold mb-2 text-[#333] dark:text-white">{currentStory.title}</h2>
+                       <p className="text-xs opacity-40 tracking-widest uppercase font-sans text-[#333] dark:text-white">Directory / 目录</p>
                     </div>
                     <div className="grid gap-4">
                       {currentStory.chapters?.map((chapter, idx) => (
                         <button key={idx} onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)} className={`p-6 border rounded-xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
-                          <div>
-                            <span className="text-[10px] opacity-30 block mb-1 font-sans font-bold">CHAPTER {idx + 1}</span>
+                          <div className="text-[#333] dark:text-white">
+                            <span className="text-[10px] opacity-30 block mb-1 font-sans font-bold text-[#333] dark:text-white">CHAPTER {idx + 1}</span>
                             <span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span>
                           </div>
-                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right">
+                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right text-[#333] dark:text-white">
                              {chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}
                           </div>
                         </button>
@@ -234,23 +229,17 @@ export default function App() {
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (
-                       <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
+                       <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-[#333] dark:text-white">Loading Content...</div>
                     ) : (
                       <>
-                        {/* --- 究极优化版渲染引擎：彻底解决跨行和间距问题 --- */}
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
                           {(() => {
                             const raw = currentStory.content || '';
-                            // 1. 全局清理：统一换行符，并去掉标签前后的多余空格，确保正则能匹配到
                             const cleanRaw = raw.replace(/\r\n/g, '\n').replace(/^\s*(\[/?(?:quote|bubble|bvid))/gm, '$1');
-
-                            // 2. 块解析正则：识别所有的块标记
                             const parts = cleanRaw.split(/(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm);
                             
                             return parts.map((part, idx) => {
                                 if (!part || part.trim() === '') return null;
-
-                                // A. 引用块 [quote]
                                 if (part.includes('[quote]')) {
                                     const inner = part.replace(/\[\/?quote\]/g, '').trim();
                                     return (
@@ -259,54 +248,31 @@ export default function App() {
                                         </blockquote>
                                     );
                                 }
-
-                                // B. 气泡块 [bubble] - 间距已调小 (my-1)
                                 if (part.includes('[bubble:')) {
                                     const isRight = part.includes('[bubble:R]');
                                     const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
                                     return (
-                                        <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-1`}>
+                                        <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-0.5`}>
                                             <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm shadow-sm ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>
                                                 {inner.split('\n').map((l, i) => <p key={i} className="mb-0">{l}</p>)}
                                             </div>
                                         </div>
                                     );
                                 }
-
-                                // C. 视频
                                 if (part.includes('[bvid:')) {
                                     const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
-                                    return (
-                                        <div key={idx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black">
-                                            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen />
-                                        </div>
-                                    );
+                                    return (<div key={idx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen /></div>);
                                 }
-
-                                // D. 分割线
-                                if (part.trim() === '---') {
-                                    return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
-                                }
-
-                                // E. 普通段落解析
+                                if (part.trim() === '---') return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
+                                
                                 return part.split('\n').map((line, lIdx) => {
                                     if (!line.trim()) return <div key={lIdx} className="h-4" />;
-                                    let processed = line
-                                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
-                                        .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-                                    
-                                    return (
-                                        <p 
-                                            key={`${idx}-${lIdx}`} 
-                                            className="mb-4 min-h-[1.5em]" 
-                                            dangerouslySetInnerHTML={{ __html: processed }} 
-                                        />
-                                    );
+                                    const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>').replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+                                    return <p key={`${idx}-${lIdx}`} className="mb-4 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: processed }} />;
                                 });
                             });
                           })()}
                         </article>
-
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
                            <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
@@ -318,11 +284,11 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
+            <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase text-[#333] dark:text-white">
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
-                <p className="font-bold">联系微博：<span className={isDarkMode ? "text-white" : "text-black"}>@恋花症-</span></p>
+                <p className="font-bold text-[#333] dark:text-white">联系微博：<span>@恋花症-</span></p>
               </div>
               <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none">© 2026 HW ARCHIVE.</p>
             </footer>
