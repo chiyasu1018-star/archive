@@ -39,12 +39,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const fetchStories = async () => {
+const fetchStories = async () => {
     try {
-      const res = await fetch('/stories/index.json');
+      // 同样加上时间戳
+      const res = await fetch(`/stories/index.json?v=${Date.now()}`);
       const data = await res.json();
       setStories(data);
-    } catch (err) { alert("获取列表失败"); }
+    } catch (err) { 
+      console.error("获取列表失败", err); 
+    }
   };
 
   useEffect(() => { if (view === 'list') fetchStories(); }, [view]);
