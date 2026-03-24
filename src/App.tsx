@@ -120,29 +120,13 @@ export default function App() {
       <AnimatePresence mode="wait">
         {!hasConfirmedAge ? (
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
-            <AnimatePresence mode="wait">
-              {!isHonest ? (
-                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
-                  <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
-                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
-                  <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
-                    <p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。</p>
-                    <p>继续访问即代表您已年满 18 周岁。</p>
-                  </div>
-                  <div className="flex flex-col gap-4 items-center">
-                    <button onClick={() => setHasConfirmedAge(true)} className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>I KNOW / 我已知晓</button>
-                    <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity">LEAVE / 离开</button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
-                  <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
-                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">期待下次相遇</h2>
-                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵<br/>喵喵喵</p>
-                  <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* 年龄验证 UI ... */}
+            <div className="max-w-md w-full text-[#333] dark:text-white">
+               <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
+               <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Archive Access</h1>
+               <p className="text-xs leading-relaxed opacity-60 tracking-widest mb-12">本站内容包含 R18 分级，访问即代表已成年。</p>
+               <button onClick={() => setHasConfirmedAge(true)} className="px-12 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase">Enter / 进入</button>
+            </div>
           </motion.div>
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen text-[#333] dark:text-white">
@@ -235,48 +219,72 @@ export default function App() {
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
                           {(() => {
                             const raw = currentStory.content || '';
-                            // 修复后的正则：给所有斜杠增加了转义 [\/]?
-                            const cleanRaw = raw.replace(/\r\n/g, '\n').replace(/^\s*(\[[\/]?)/gm, '$1');
-                            const parts = cleanRaw.split(/(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm);
+                            // 1. 块级正则匹配
+                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/g;
+                            const parts = raw.split(blockRegex);
                             
                             return parts.map((part, idx) => {
-                                if (!part || part.trim() === '') return null;
-                                if (part.includes('[quote]')) {
-                                    const inner = part.replace(/\[[\/]?quote\]/g, '').trim();
+                                if (!part) return null;
+
+                                // A. 处理引用 [quote]
+                                if (part.startsWith('[quote]')) {
+                                    const inner = part.replace(/\[\/?quote\]/g, '').trim();
                                     return (
                                         <blockquote key={idx} className="my-8 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-4 rounded-r-lg">
-                                            {inner.split('\n').map((l, i) => <p key={i} className="mb-2 last:mb-0">{l}</p>)}
+                                            {inner.split('\n').map((l, i) => <p key={i} className={l.trim() ? "mb-2 last:mb-0" : "h-4"} dangerouslySetInnerHTML={{ __html: l.trim() ? l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<i>$1</i>') : '&nbsp;' }} />)}
                                         </blockquote>
                                     );
                                 }
-                                if (part.includes('[bubble:')) {
+
+                                // B. 处理气泡 [bubble]
+                                if (part.startsWith('[bubble:')) {
                                     const isRight = part.includes('[bubble:R]');
                                     const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
                                     return (
                                         <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-0.5`}>
                                             <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm shadow-sm ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>
-                                                {inner.split('\n').map((l, i) => <p key={i} className="mb-0">{l}</p>)}
+                                                {inner.split('\n').map((l, i) => <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<i>$1</i>') || '&nbsp;' }} />)}
                                             </div>
                                         </div>
                                     );
                                 }
-                                if (part.includes('[bvid:')) {
+
+                                // C. 处理视频 [bvid]
+                                if (part.startsWith('[bvid:')) {
                                     const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
-                                    return (<div key={idx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen /></div>);
+                                    return (
+                                        <div key={idx} className="my-8 aspect-video w-full overflow-hidden rounded-xl shadow-xl bg-black">
+                                            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen />
+                                        </div>
+                                    );
                                 }
-                                if (part.trim() === '---') return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
-                                
+
+                                // D. 分割线 ---
+                                if (part === '---') {
+                                    return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
+                                }
+
+                                // E. 普通段落逻辑
                                 return part.split('\n').map((line, lIdx) => {
-                                    if (!line.trim()) return <div key={lIdx} className="h-4" />;
-                                    const processedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>').replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-                                    return <p key={`${idx}-${lIdx}`} className="mb-4 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: processedLine }} />;
+                                    const processed = line
+                                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+                                        .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+                                    
+                                    return (
+                                        <p 
+                                            key={`${idx}-${lIdx}`} 
+                                            className={line.trim() ? "mb-4 min-h-[1.5em]" : "h-6"} 
+                                            dangerouslySetInnerHTML={{ __html: processed || '&nbsp;' }} 
+                                        />
+                                    );
                                 });
                             });
                           })()}
                         </article>
+
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:border-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
                         </div>
                       </>
                     )}
@@ -285,10 +293,9 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase text-[#333] dark:text-white">
+            <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase">
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
-                <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
-                <p>站内内容全是机翻，如有侵权请联系删除。</p>
+                <p>本站仅作为存档使用，版权归原作者所有。</p>
                 <p className="font-bold">联系微博：<span>@恋花症-</span></p>
               </div>
               <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none">© 2026 HW ARCHIVE.</p>
