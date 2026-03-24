@@ -4,7 +4,6 @@
 
 [bubble:L]“我才不是美杜莎呢。”[/bubble]
 
-
 [bubble:L]“你的 X 选择了你。”[/bubble]
 
 
@@ -46,66 +45,47 @@
 
 
 [bubble:L]你好。[/bubble]
-
-
-
 [bubble:R]嗯，你好。[/bubble]
-
-
-
 [bubble:L]和 X 交往了多久？
 [/bubble]
-
-
 [bubble:R]挺久的，大概 6 年。[/bubble]
-
-
-
 [bubble:L]东花喜欢什么？[/bubble]
-
 [bubble:L]比如吃的或兴趣爱好。[/bubble]
-
-
-
-
 [bubble:R]吃的方面他倒没那么挑剔[/bubble]
-
-
-
-
 [bubble:R]主要看陪他吃的人。[/bubble]
-
-
 [bubble:R]啊，他不怎么能吃辣。[/bubble]
-
-
 [bubble:R]爱好是购物。[/bubble]
+[bubble:L]他喜欢活泼一点的约会吗？[/bubble]
+[bubble:R]嗯，应该会喜欢。[/bubble]
+[bubble:L]那他有什么讨厌的行为吗？需要注意的地方。
+[/bubble]
+
+[bubble:R]
+嗯…[/bubble]
+[bubble:R]装作不在乎的样子。[/bubble]
+[bubble:R]明明不好却装作很好，明明讨厌却装作喜欢。
+[/bubble]
+[bubble:R]他讨厌别人自顾自地猜测判断，讨厌谎言。[/bubble]
+[bubble:L]那他喜欢什么类型的？[/bubble]
+[bubble:R]坦诚的类型吧？[/bubble]
+[bubble:L]
+你介绍得真详细啊哈哈。[/bubble]
+[bubble:L]
+你……没有复合的想法吗？[/bubble]
 
 
-他喜欢活泼一点的约会吗？
-
-嗯，应该会喜欢。
-
-那他有什么讨厌的行为吗？需要注意的地方。
-
-嗯……装作不在乎的样子。明明不好却装作很好，明明讨厌却装作喜欢。
-
-他讨厌别人自顾自地猜测判断，讨厌谎言。
-
-那他喜欢什么类型的？
-
-坦诚的类型吧？
-
-你介绍得真详细啊哈哈。你……没有复合的想法吗？
 
 看到最后一个问题，主汪的手停住了。写了又删，写下“不是”，又写下“不太清楚”，最后又删掉。最终他发过去：
 
-可以不予置评（No Comment）吗？
 
-聊天结束。接着轮到主汪向约会对象的 X 提问。
+[bubble:R]我可以不回答吗？[/bubble]
 
-噢，你好哈哈。
 
+聊天结束。
+接着轮到主汪向约会对象的 X 提问。
+
+
+[bubble:L]噢，你好哈哈。[/bubble]
 你好。
 
 民俊有什么喜欢的食物吗？
