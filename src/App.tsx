@@ -125,12 +125,41 @@ export default function App() {
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'dark bg-[#121212] text-[#E0E0E0]' : 'bg-[#F5F5F5] text-[#333333]'} font-serif selection:bg-black/5 bg-noise`}>
       <AnimatePresence mode="wait">
-        {!hasConfirmedAge ? (
+       {!hasConfirmedAge ? (
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
-             <ShieldAlert className="mx-auto mb-8 opacity-20 text-[#333] dark:text-white" size={48} />
-             <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-[#333] dark:text-white">Content Notice</h1>
-             <p className="text-xs opacity-60 tracking-widest mb-12 text-[#333] dark:text-white">本站内容包含 R18 分级，仅限成年人访问。</p>
-             <button onClick={() => setHasConfirmedAge(true)} className="px-12 py-3 border border-black/20 dark:border-white/20 rounded-full text-[10px] font-bold tracking-[0.3em] uppercase hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all">Enter / 进入</button>
+            <AnimatePresence mode="wait">
+              {!isHonest ? (
+                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
+                  <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
+                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
+                  <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
+                    <p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。</p>
+                    <p>继续访问即代表您已年满 18 周岁。</p>
+                  </div>
+                  <div className="flex flex-col gap-4 items-center">
+                    <button 
+                      onClick={() => setHasConfirmedAge(true)} 
+                      className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}
+                    >
+                      I KNOW / 我已知晓
+                    </button>
+                    <button 
+                      onClick={() => setIsHonest(true)} 
+                      className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity"
+                    >
+                      LEAVE / 离开
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
+                  <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
+                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">期待下次相遇</h2>
+                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵<br/>喵喵喵</p>
+                  <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen text-[#333] dark:text-white">
