@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  // 这里的 '/archive/' 必须对应你的 GitHub 仓库名
-  base: '/archive/', 
+  // 👈 把之前的 '/archive/' 改成下面的 '/'
+  // 这样 Vercel 就能在根目录正确找到你的 CSS 和 JS 了
+  base: '/', 
 })
