@@ -48,8 +48,9 @@ export default function App() {
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
+  // 1. 这里的 fetch 增加了反缓存，保证首页列表是最新的
   useEffect(() => {
-    fetch('/stories/index.json')
+    fetch('/stories/index.json?v=' + Date.now())
       .then(res => res.json())
       .then(data => {
         setStories(data);
@@ -66,7 +67,8 @@ export default function App() {
         const updatedChapters = await Promise.all(
           story.chapters.map(async (ch) => {
             try {
-              const res = await fetch(`/stories/${ch.fileName}`);
+              // 2. 这里的 fetch 也增加了反缓存
+              const res = await fetch(`/stories/${ch.fileName}?v=${Date.now()}`);
               const text = await res.text();
               const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
               return { ...ch, autoWordCount: count };
@@ -84,7 +86,8 @@ export default function App() {
   const loadFullStory = async (parentStory: Story, fileName: string, chapterTitle?: string) => {
     setReading(true);
     try {
-      const response = await fetch(`/stories/${fileName}`);
+      // 3. 这里的 fetch 也增加了反缓存
+      const response = await fetch(`/stories/${fileName}?v=${Date.now()}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       setCurrentStory({ ...parentStory, content: text, wordCount: count, currentChapterTitle: chapterTitle });
@@ -294,7 +297,7 @@ export default function App() {
                         </article>
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:border-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
                         </div>
                       </>
                     )}
