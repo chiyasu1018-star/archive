@@ -107,11 +107,13 @@ export default function App() {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // 基础样式应用函数 (加粗, 斜体)
+  // 增强版基础样式应用函数
   const applyInlineStyles = (text: string) => {
+    if (!text) return '';
     return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+      // 增强正则：处理符号内外的空格，防止样式失效
+      .replace(/\*\*\s*(.*?)\s*\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+      .replace(/\*\s*(.*?)\s*\*/g, '<em class="italic opacity-80">$1</em>');
   };
 
   if (isAdmin) return <Admin onBack={() => setIsAdmin(false)} />;
@@ -251,15 +253,19 @@ export default function App() {
                       <>
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
                           {(() => {
-                            const raw = currentStory.content || '';
-                            // 1. 使用正则表达式作为“锚点”切分全文
-                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm;
+                            let raw = currentStory.content || '';
+                            
+                            // 预处理：清理所有特殊标签前后的多余空格和缩进，防止解析失败
+                            raw = raw.replace(/^\s*(\[[\/]?quote\]|\[[\/]?box\]|\[[\/]?bubble:[LR]\]|\[[\/]?bvid:.*?\]|---)\s*$/gm, '$1');
+
+                            // 解析正则：新增 [box]
+                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[box\][\s\S]*?\[\/box\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm;
                             const parts = raw.split(blockRegex);
                             
                             return parts.map((part, idx) => {
                                 if (!part) return null;
 
-                                // A. 处理引用 [quote] (内部支持空行和基础样式)
+                                // 1. 处理引用 [quote]
                                 if (part.includes('[quote]')) {
                                     const inner = part.replace(/\[\/?quote\]/g, '').trim();
                                     return (
@@ -271,7 +277,19 @@ export default function App() {
                                     );
                                 }
 
-                                // B. 处理气泡 [bubble] (内部支持多行，间距设为极紧 my-0.5)
+                                // 2. 新增：处理灰色方框 [box]
+                                if (part.includes('[box]')) {
+                                  const inner = part.replace(/\[\/?box\]/g, '').trim();
+                                  return (
+                                      <div key={idx} className="my-8 p-6 bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-xl text-sm leading-relaxed shadow-sm">
+                                          {inner.split('\n').map((l, i) => (
+                                            <p key={i} className={l.trim() ? "mb-2 last:mb-0" : "h-4"} dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) || '&nbsp;' }} />
+                                          ))}
+                                      </div>
+                                  );
+                                }
+
+                                // 3. 处理气泡 [bubble]
                                 if (part.includes('[bubble:')) {
                                     const isRight = part.includes('[bubble:R]');
                                     const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
@@ -286,7 +304,7 @@ export default function App() {
                                     );
                                 }
 
-                                // C. 处理视频 [bvid]
+                                // 4. 处理视频 [bvid]
                                 if (part.includes('[bvid:')) {
                                     const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
                                     return (
@@ -296,22 +314,22 @@ export default function App() {
                                     );
                                 }
 
-                                // D. 处理分割线 ---
+                                // 5. 处理分割线 ---
                                 if (part.trim() === '---') {
                                     return <hr key={idx} className="my-12 border-t border-black/10 dark:border-white/10" />;
                                 }
 
-                                // E. 处理普通文本 (支持空行识别)
+                                // 6. 处理普通文本 (智能识别空行)
                                 return part.split('\n').map((line, lIdx) => {
-                                    const processed = applyInlineStyles(line);
-                                    // 如果是彻底的空行，渲染一个高度占位，确保留白
-                                    if (!line.trim()) return <div key={lIdx} className="h-6" />;
+                                    // 清理行首尾空格，但不影响内部样式
+                                    const cleanLine = line.trim(); 
+                                    if (!cleanLine) return <div key={lIdx} className="h-6" />;
                                     
                                     return (
                                         <p 
                                             key={`${idx}-${lIdx}`} 
                                             className="mb-4 min-h-[1.5em]" 
-                                            dangerouslySetInnerHTML={{ __html: processed }} 
+                                            dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} 
                                         />
                                     );
                                 });
