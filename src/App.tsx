@@ -49,7 +49,7 @@ export default function App() {
   const [isHonest, setIsHonest] = useState(false);
 
   useEffect(() => {
-    fetch('/stories/index.json')
+    fetch('./stories/index.json')
       .then(res => res.json())
       .then(data => {
         setStories(data);
@@ -66,7 +66,7 @@ export default function App() {
         const updatedChapters = await Promise.all(
           story.chapters.map(async (ch) => {
             try {
-              const res = await fetch(`/stories/${ch.fileName}`);
+              const res = await fetch(`./stories/${ch.fileName}`);
               const text = await res.text();
               const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
               return { ...ch, autoWordCount: count };
@@ -84,7 +84,7 @@ export default function App() {
   const loadFullStory = async (parentStory: Story, fileName: string, chapterTitle?: string) => {
     setReading(true);
     try {
-      const response = await fetch(`/stories/${fileName}`);
+      const response = await fetch(`./stories/${fileName}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       setCurrentStory({ ...parentStory, content: text, wordCount: count, currentChapterTitle: chapterTitle });
