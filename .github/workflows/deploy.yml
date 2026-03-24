@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # 如果你的主分支叫 master，就把这里改写成 master
+    branches: ["main"]
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # 👇 删掉了报错的 cache 行，这样它就不会去找 lock 文件了
 
       - name: Install dependencies
         run: npm install
