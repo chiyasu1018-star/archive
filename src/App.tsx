@@ -122,9 +122,9 @@ export default function App() {
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
             <AnimatePresence mode="wait">
               {!isHonest ? (
-                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
+                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
                   <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
-                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-[#333] dark:text-white">Content Notice</h1>
+                  <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
                   <div className="space-y-4 mb-12 text-xs leading-relaxed opacity-60 tracking-widest">
                     <p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。</p>
                     <p>继续访问即代表您已年满 18 周岁。</p>
@@ -137,7 +137,7 @@ export default function App() {
               ) : (
                 <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
                   <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
-                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4">期待下次相遇</h2>
+                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">期待下次相遇</h2>
                   <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵<br/>喵喵喵</p>
                   <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
                 </motion.div>
@@ -145,7 +145,7 @@ export default function App() {
             </AnimatePresence>
           </motion.div>
         ) : (
-          <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
+          <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen text-[#333] dark:text-white">
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/30 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
                 {currentStory ? (
@@ -161,7 +161,7 @@ export default function App() {
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
                 {currentStory?.content && (
-                  <div className="flex gap-1 ml-2 font-sans font-bold text-[#333] dark:text-white">
+                  <div className="flex gap-1 ml-2 font-sans font-bold">
                     <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
                     <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg">A+</button>
                   </div>
@@ -174,16 +174,16 @@ export default function App() {
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12">
-                      <h1 className="text-3xl font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">花汪档案馆</h1>
+                      <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
                     </header>
                     <section className="max-w-[700px] mx-auto">
                       {stories.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30' : 'border-black/5 hover:border-black/20'}`}>
                           <div className="flex items-baseline gap-3">
-                             <h3 className="text-xl font-medium mb-1 text-[#333] dark:text-white">{s.title}</h3>
+                             <h3 className="text-xl font-medium mb-1">{s.title}</h3>
                              {s.chapters && <BookOpen size={14} className="opacity-30" />}
                           </div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans text-[#333] dark:text-white">
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans">
                             <span>{s.author}</span>
                             <span>{s.date?.replace(/-/g, '.')}</span>
                             {s.chapters && <span>{s.chapters.length} 章节</span>}
@@ -195,17 +195,17 @@ export default function App() {
                 ) : showChapterList ? (
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
                     <div className="mb-12 text-center">
-                       <h2 className="text-2xl font-bold mb-2 text-[#333] dark:text-white">{currentStory.title}</h2>
-                       <p className="text-xs opacity-40 tracking-widest uppercase font-sans text-[#333] dark:text-white">Directory / 目录</p>
+                       <h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2>
+                       <p className="text-xs opacity-40 tracking-widest uppercase font-sans">Directory / 目录</p>
                     </div>
                     <div className="grid gap-4">
                       {currentStory.chapters?.map((chapter, idx) => (
                         <button key={idx} onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)} className={`p-6 border rounded-xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
-                          <div className="text-[#333] dark:text-white">
-                            <span className="text-[10px] opacity-30 block mb-1 font-sans font-bold text-[#333] dark:text-white">CHAPTER {idx + 1}</span>
+                          <div>
+                            <span className="text-[10px] opacity-30 block mb-1 font-sans font-bold">CHAPTER {idx + 1}</span>
                             <span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span>
                           </div>
-                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right text-[#333] dark:text-white">
+                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right">
                              {chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}
                           </div>
                         </button>
@@ -214,7 +214,7 @@ export default function App() {
                   </motion.div>
                 ) : (
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto">
-                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans text-[#333] dark:text-white">
+                    <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans">
                       <h2 className="text-4xl font-serif font-light mb-8 leading-tight">
                         {currentStory.title}
                         {currentStory.currentChapterTitle && (
@@ -229,19 +229,20 @@ export default function App() {
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (
-                       <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-[#333] dark:text-white">Loading Content...</div>
+                       <div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>
                     ) : (
                       <>
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
                           {(() => {
                             const raw = currentStory.content || '';
-                            const cleanRaw = raw.replace(/\r\n/g, '\n').replace(/^\s*(\[/?(?:quote|bubble|bvid))/gm, '$1');
+                            // 修复后的正则：给所有斜杠增加了转义 [\/]?
+                            const cleanRaw = raw.replace(/\r\n/g, '\n').replace(/^\s*(\[[\/]?)/gm, '$1');
                             const parts = cleanRaw.split(/(\[quote\][\s\S]*?\[\/quote\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm);
                             
                             return parts.map((part, idx) => {
                                 if (!part || part.trim() === '') return null;
                                 if (part.includes('[quote]')) {
-                                    const inner = part.replace(/\[\/?quote\]/g, '').trim();
+                                    const inner = part.replace(/\[[\/]?quote\]/g, '').trim();
                                     return (
                                         <blockquote key={idx} className="my-8 pl-4 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-4 rounded-r-lg">
                                             {inner.split('\n').map((l, i) => <p key={i} className="mb-2 last:mb-0">{l}</p>)}
@@ -267,8 +268,8 @@ export default function App() {
                                 
                                 return part.split('\n').map((line, lIdx) => {
                                     if (!line.trim()) return <div key={lIdx} className="h-4" />;
-                                    const processed = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>').replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
-                                    return <p key={`${idx}-${lIdx}`} className="mb-4 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: processed }} />;
+                                    const processedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>').replace(/\*(.*?)\*/g, '<em class="italic opacity-80">$1</em>');
+                                    return <p key={`${idx}-${lIdx}`} className="mb-4 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: processedLine }} />;
                                 });
                             });
                           })()}
@@ -288,8 +289,7 @@ export default function App() {
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12">
                 <p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p>
                 <p>站内内容全是机翻，如有侵权请联系删除。</p>
-                <p className="font-bold text-red-500/50 text-[11px]">请勿二次搬运。禁止用于任何商业用途。</p>
-                <p className="font-bold text-[#333] dark:text-white">联系微博：<span>@恋花症-</span></p>
+                <p className="font-bold">联系微博：<span>@恋花症-</span></p>
               </div>
               <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none">© 2026 HW ARCHIVE.</p>
             </footer>
