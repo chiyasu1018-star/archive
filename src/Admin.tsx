@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
-import { ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, Minus, Video, PlusCircle } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Key, 
+  Edit3, 
+  List, 
+  Bold, 
+  Italic, 
+  Quote, 
+  MessageSquare, 
+  Minus, 
+  Video, 
+  PlusCircle,
+  Square // 新增图标
+} from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
@@ -11,7 +24,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [view, setView] = useState<'create' | 'list'>('create'); 
   const [stories, setStories] = useState<any[]>([]); 
   
-  // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
@@ -37,62 +49,66 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { if (view === 'list') fetchStories(); }, [view]);
 
-  // --- 智能插入标签 ---
-// 找到 Admin.tsx 里的 insertTag 函数，替换为这个：
-const insertTag = (openTag: string, closeTag: string = '', placeholder: string = '') => {
-  const textarea = textareaRef.current;
-  if (!textarea) return;
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const selectedText = content.substring(start, end);
+  // --- 深度优化后的智能插入标签 ---
+  const insertTag = (openTag: string, closeTag: string = '', placeholder: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
 
-  // 针对块状标签（引用、气泡、视频、分割线）自动换行
-  const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('bvid') || openTag.includes('---');
-  
-  let textToInsert = '';
-  let cursorOffset = 0;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
 
-  if (isBlock) {
-      // 块级标签前后强制加回车，确保独立
-      const prefix = content.charAt(start - 1) === '\n' || start === 0 ? '' : '\n';
-      const middle = selectedText || placeholder;
-      textToInsert = `${prefix}${openTag}\n${middle}\n${closeTag}\n`;
-      cursorOffset = prefix.length + openTag.length + 1 + middle.length;
-  } else {
-      // 行内标签（加粗、斜体）保持原样
-      textToInsert = openTag + (selectedText || placeholder) + closeTag;
-      cursorOffset = openTag.length + (selectedText || placeholder).length;
-  }
+    // 判断是否为块级标签（引用、气泡、视频、分割线、灰色方框）
+    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('bvid') || openTag.includes('---') || openTag.includes('box');
+    
+    let textToInsert = '';
+    let newCursorStart = 0;
+    let newCursorEnd = 0;
 
-  const newContent = content.substring(0, start) + textToInsert + content.substring(end);
-  setContent(newContent);
-  setTimeout(() => {
-    textarea.selectionStart = start + (isBlock ? openTag.length + (content.charAt(start - 1) === '\n' || start === 0 ? 1 : 2) : openTag.length);
-    textarea.selectionEnd = start + cursorOffset;
-    textarea.focus();
-  }, 0);
-};
-  // --- 核心：续传新章节逻辑 ---
+    if (isBlock) {
+        // 块级标签逻辑：确保前后都有换行，且标签内部干净
+        const beforeChar = content.charAt(start - 1);
+        const prefix = (start === 0 || beforeChar === '\n') ? '' : '\n';
+        const innerText = selectedText || placeholder;
+        
+        // 构造插入内容：[tag]内容[/tag]
+        textToInsert = `${prefix}${openTag}\n${innerText}\n${closeTag}\n`;
+        
+        const afterPos = start + textToInsert.length;
+        newCursorStart = start + prefix.length + openTag.length + 1; // 选中文本开始处
+        newCursorEnd = newCursorStart + innerText.length;
+    } else {
+        // 行内标签逻辑（加粗、斜体）
+        const innerText = selectedText || placeholder;
+        textToInsert = `${openTag}${innerText}${closeTag}`;
+        newCursorStart = start + openTag.length;
+        newCursorEnd = newCursorStart + innerText.length;
+    }
+
+    const newContent = content.substring(0, start) + textToInsert + content.substring(end);
+    setContent(newContent);
+
+    // 异步聚焦并选中，让用户可以直接修改占位符文字
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorStart, newCursorEnd);
+    }, 10);
+  };
+
   const handleAddChapter = (story: any) => {
-    setEditingId(null); // 这是新文件
+    setEditingId(null);
     setEditingFileName(null);
     setEditingFileSha(null);
-    
-    // 自动填入旧文章的信息
     setTitle(story.title);
     setAuthor(story.author);
     setSourceLink(story.sourceLink || '');
     setPublishDate(new Date().toISOString().split('T')[0]);
-    
-    // 清空章节标题和正文
     setChapterTitle('');
     setContent('');
-    
     setView('create');
     setStatus(`正在为《${story.title}》添加新章节`);
   };
 
-  // 编辑逻辑
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     setIsPublishing(true); setStatus('正在获取正文...');
     try {
@@ -181,11 +197,7 @@ const insertTag = (openTag: string, closeTag: string = '', placeholder: string =
                             <span className="font-bold text-lg block leading-tight">{s.title}</span>
                             <span className="text-[10px] opacity-40 uppercase tracking-tighter">{s.date} · {s.author}</span>
                         </div>
-                        {/* 续传新章节按钮 */}
-                        <button 
-                            onClick={() => handleAddChapter(s)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
-                        >
+                        <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">
                             <PlusCircle size={14}/> 续传
                         </button>
                     </div>
@@ -240,15 +252,19 @@ const insertTag = (openTag: string, closeTag: string = '', placeholder: string =
 
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => insertTag('**', '**', '加粗文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Bold size={16}/></button>
-              <button onClick={() => insertTag('*', '*', '斜体文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Italic size={16}/></button>
-              <button onClick={() => insertTag('\n[quote]', '[/quote]\n', '引用内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Quote size={16}/></button>
-              <button onClick={() => insertTag('\n[bubble:L]', '[/bubble]\n', '左对话')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><MessageSquare size={16}/></button>
-              <button onClick={() => insertTag('\n[bubble:R]', '[/bubble]\n', '右对话')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors text-blue-500"><MessageSquare size={16}/></button>
-              <button onClick={() => insertTag('\n---\n')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Minus size={16}/></button>
-              <button onClick={() => insertTag('\n[bvid:', ']\n', 'BV号')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"><Video size={16}/></button>
+              <button onClick={() => insertTag('**', '**', '加粗文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="加粗"><Bold size={16}/></button>
+              <button onClick={() => insertTag('*', '*', '斜体文字')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="斜体"><Italic size={16}/></button>
+              
+              {/* 新增灰色方框按钮 */}
+              <button onClick={() => insertTag('[box]', '[/box]', '灰色方框内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors text-amber-600 dark:text-amber-500" title="灰色方框"><Square size={16}/></button>
+              
+              <button onClick={() => insertTag('[quote]', '[/quote]', '引用内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="引用"><Quote size={16}/></button>
+              <button onClick={() => insertTag('[bubble:L]', '[/bubble]', '左对话内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="左气泡"><MessageSquare size={16}/></button>
+              <button onClick={() => insertTag('[bubble:R]', '[/bubble]', '右对话内容')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors text-blue-500" title="右气泡"><MessageSquare size={16}/></button>
+              <button onClick={() => insertTag('---')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="分割线"><Minus size={16}/></button>
+              <button onClick={() => insertTag('[bvid:', ']', 'BV号')} className="p-2 bg-slate-100 dark:bg-white/5 rounded-lg hover:bg-blue-500 hover:text-white transition-colors" title="B站视频"><Video size={16}/></button>
             </div>
-            <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base" placeholder="在此粘贴正文..." />
+            <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} rows={15} className="w-full bg-slate-100 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴正文..." />
           </div>
 
           <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-[0.3em] uppercase bg-blue-600 text-white shadow-xl">
