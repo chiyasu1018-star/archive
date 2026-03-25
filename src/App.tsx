@@ -48,7 +48,10 @@ export default function App() {
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
-  // 1. 这里的 fetch 增加了反缓存，保证首页列表是最新的
+  // --- 新增：分页状态 ---
+  const ITEMS_PER_PAGE = 8; // 每页显示 8 篇
+  const [currentPage, setCurrentPage] = useState(1);
+
   useEffect(() => {
     fetch('/stories/index.json?v=' + Date.now())
       .then(res => res.json())
@@ -59,6 +62,13 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
+  // --- 新增：分页计算逻辑 ---
+  const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
+  const currentItems = stories.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const handleStoryClick = async (story: Story) => {
     setCurrentStory(story);
     if (story.chapters && story.chapters.length > 0) {
@@ -67,7 +77,6 @@ export default function App() {
         const updatedChapters = await Promise.all(
           story.chapters.map(async (ch) => {
             try {
-              // 2. 这里的 fetch 也增加了反缓存
               const res = await fetch(`/stories/${ch.fileName}?v=${Date.now()}`);
               const text = await res.text();
               const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
@@ -86,7 +95,6 @@ export default function App() {
   const loadFullStory = async (parentStory: Story, fileName: string, chapterTitle?: string) => {
     setReading(true);
     try {
-      // 3. 这里的 fetch 也增加了反缓存
       const response = await fetch(`/stories/${fileName}?v=${Date.now()}`);
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
@@ -187,7 +195,8 @@ export default function App() {
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
                     </header>
                     <section className="max-w-[700px] mx-auto">
-                      {stories.map(s => (
+                      {/* 这里改用了 currentItems 而不是 stories */}
+                      {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                           <div className="flex items-baseline gap-3">
                              <h3 className="text-xl font-medium mb-1">{s.title}</h3>
@@ -201,6 +210,37 @@ export default function App() {
                         </motion.button>
                       ))}
                     </section>
+
+                    {/* 新增：分页控制栏 */}
+                    {totalPages > 1 && (
+                      <div className="flex justify-center items-center gap-12 mt-20 py-10 border-t border-dashed border-black/5 dark:border-white/5">
+                        <button 
+                          onClick={() => {
+                            setCurrentPage(prev => Math.max(prev - 1, 1));
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          disabled={currentPage === 1}
+                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
+                        >
+                          ← PREV
+                        </button>
+
+                        <span className="text-[10px] font-serif opacity-20 tracking-[0.3em] uppercase">
+                          {currentPage} / {totalPages}
+                        </span>
+
+                        <button 
+                          onClick={() => {
+                            setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          disabled={currentPage === totalPages}
+                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
+                        >
+                          NEXT →
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 ) : showChapterList ? (
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12 text-[#333] dark:text-white">
