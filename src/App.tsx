@@ -48,8 +48,8 @@ export default function App() {
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
 
-  // --- 新增：分页状态 ---
-  const ITEMS_PER_PAGE = 8; // 每页显示 8 篇
+  // --- 分页状态 ---
+  const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function App() {
       .catch(() => setLoading(false));
   }, []);
 
-  // --- 新增：分页计算逻辑 ---
+  // --- 分页计算 ---
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -93,7 +93,7 @@ export default function App() {
   };
 
   const loadFullStory = async (parentStory: Story, fileName: string, chapterTitle?: string) => {
-    setReading(true);
+    setReading(reading => true);
     try {
       const response = await fetch(`/stories/${fileName}?v=${Date.now()}`);
       const text = await response.text();
@@ -195,7 +195,6 @@ export default function App() {
                       <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
                     </header>
                     <section className="max-w-[700px] mx-auto">
-                      {/* 这里改用了 currentItems 而不是 stories */}
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                           <div className="flex items-baseline gap-3">
@@ -210,32 +209,21 @@ export default function App() {
                         </motion.button>
                       ))}
                     </section>
-
-                    {/* 新增：分页控制栏 */}
+                    
                     {totalPages > 1 && (
                       <div className="flex justify-center items-center gap-12 mt-20 py-10 border-t border-dashed border-black/5 dark:border-white/5">
                         <button 
-                          onClick={() => {
-                            setCurrentPage(prev => Math.max(prev - 1, 1));
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onClick={() => { setCurrentPage(p => Math.max(p - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                           disabled={currentPage === 1}
-                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
+                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
                         >
                           ← PREV
                         </button>
-
-                        <span className="text-[10px] font-serif opacity-20 tracking-[0.3em] uppercase">
-                          {currentPage} / {totalPages}
-                        </span>
-
+                        <span className="text-[10px] opacity-20 tracking-[0.3em] uppercase">{currentPage} / {totalPages}</span>
                         <button 
-                          onClick={() => {
-                            setCurrentPage(prev => Math.min(prev + 1, totalPages));
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onClick={() => { setCurrentPage(p => Math.min(p + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                           disabled={currentPage === totalPages}
-                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
+                          className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}
                         >
                           NEXT →
                         </button>
@@ -287,11 +275,12 @@ export default function App() {
                             let raw = currentStory.content || '';
                             raw = raw.replace(/^\s*(\[[\/]?\w+.*?\]|---)\s*$/gm, '$1');
                             raw = raw.replace(/\r\n/g, '\n');
-                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[box\][\s\S]*?\[\/box\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|^---$)/gm;
+                            // 改进后的正则：非贪婪匹配且支持多视频
+                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[box\][\s\S]*?\[\/box\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|---)/g;
                             const parts = raw.split(blockRegex);
                             return parts.map((part, idx) => {
-                                if (!part || !part.trim()) return null;
-                                if (part.includes('[quote]')) {
+                                if (!part) return null;
+                                if (/^\[quote\]/.test(part)) {
                                     const inner = part.replace(/\[\/?quote\]/g, '').trim();
                                     return (
                                         <blockquote key={idx} className="my-10 pl-5 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-6 rounded-r-xl">
@@ -299,7 +288,7 @@ export default function App() {
                                         </blockquote>
                                     );
                                 }
-                                if (part.includes('[box]')) {
+                                if (/^\[box\]/.test(part)) {
                                   const inner = part.replace(/\[\/?box\]/g, '').trim();
                                   return (
                                       <div key={idx} className="my-10 p-8 bg-slate-100/60 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl text-sm leading-relaxed shadow-sm ring-1 ring-black/5 dark:ring-white/5">
@@ -307,7 +296,7 @@ export default function App() {
                                       </div>
                                   );
                                 }
-                                if (part.includes('[bubble:')) {
+                                if (/^\[bubble:/.test(part)) {
                                     const isRight = part.includes('[bubble:R]');
                                     const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
                                     return (
@@ -318,17 +307,18 @@ export default function App() {
                                         </div>
                                     );
                                 }
-                                if (part.includes('[bvid:')) {
+                                if (/^\[bvid:/.test(part)) {
                                     const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
                                     return (
                                         <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
-                                            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen />
+                                            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" />
                                         </div>
                                     );
                                 }
-                                if (part.trim() === '---') return <hr key={idx} className="my-16 border-t border-black/10 dark:border-white/10" />;
+                                if (part === '---') return <hr key={idx} className="my-16 border-t border-black/10 dark:border-white/10" />;
                                 return part.split('\n').map((line, lIdx) => {
                                     const cleanLine = line.trim();
+                                    if (!cleanLine && line.length === 0) return null;
                                     if (!cleanLine) return <div key={lIdx} className="h-6" />;
                                     return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
                                 });
@@ -337,7 +327,7 @@ export default function App() {
                         </article>
                         <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                            <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:border-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                           <button onClick={scrollToTop} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
                         </div>
                       </>
                     )}
