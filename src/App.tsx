@@ -271,7 +271,7 @@ export default function App() {
                                     const isRight = part.includes('[bubble:R]');
                                     const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
                                     return (
-                                        <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-2`}>
+                                        <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-3`}>
                                             <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>
                                                 {inner.split('\n').map((l, i) => (<p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) || '&nbsp;' }} />))}
                                             </div>
