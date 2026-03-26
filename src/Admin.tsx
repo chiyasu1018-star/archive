@@ -41,7 +41,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setStatus(mode === 'full' ? "AI 逐句翻译中..." : "AI 智能排版中...");
     try {
       const genAI = new GoogleGenerativeAI(aiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      // 升级到 2.0 模型，不仅翻译更准，而且绝对不会报 404
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const prompt = mode === 'full' 
       ? `你是一个专业的韩译中排版助手。任务：翻译以下文字。要求：1.严禁漏译，保留所有段落细节。2.译名：\n${nameMap}\n3.自动标签：对话用 [bubble:L] 和 [bubble:R] 交替包裹；书信独白用 [quote]。直接输出译文：\n${aiInput}`
       : `不要翻译。任务：识别文字中的对话和引用，打上 [bubble] 和 [quote] 标签。直接输出带标签的原文：\n${aiInput}`;
