@@ -13,7 +13,8 @@ const BRANCH = "main";
 export default function Admin({ onBack }: { onBack: () => void }) {
   const [token, setToken] = useState(localStorage.getItem('gh_token') || '');
   const [aiKey, setAiKey] = useState(localStorage.getItem('gemini_key') || '');
-  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-1.5-flash');
+  // ✅ 默认切换为 Google 免费且最快的 gemini-2.0-flash 模型
+  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-2.0-flash');
   
   const [view, setView] = useState<'create' | 'list'>('create'); 
   const [stories, setStories] = useState<any[]>([]); 
@@ -34,63 +35,72 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- 真正的智能：本地正则处理（秒出结果，不浪费API） ---
+  // --- 🌟 增强版：本地一键洗稿 ---
   const handleLocalSmartFix = () => {
     let text = content || aiInput;
-    // 1. 自动抠出所有B站链接并转为 [bvid:...] 标签
-    const bvidRegex = /https?:\/\/www\.bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/g;
+    
+    // 1. 清理 Postype 恶心的多余换行 (把3个及以上的连续换行变成2个)
+    text = text.replace(/\n{3,}/g, '\n\n');
+    
+    // 2. 自动抠出所有B站链接并转为 [bvid:...] 标签
+    const bvidRegex = /https?:\/\/www\.bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/ig;
     text = text.replace(bvidRegex, '\n[bvid:$1]\n');
     
-    // 2. 规范化分割线
+    // 3. 规范化分割线
     text = text.replace(/^[—\-_*]{3,}$/gm, '---');
     
     setContent(text);
-    setStatus("本地格式优化完成");
+    setStatus("本地格式优化完成！空行与链接已清洗。");
   };
 
-  // --- AI 处理函数：带严格范例的 Prompt ---
+  // --- 🤖 增强版：AI 处理函数 ---
   const handleAIAssist = async (mode: 'full' | 'tags_only') => {
     if (!aiKey) return alert("请先填写顶部的 Gemini Key");
     if (!aiInput) return alert("请在左侧贴入原文");
     setIsAiLoading(true);
-    setStatus(mode === 'full' ? "AI 逐句翻译排版中..." : "AI 正在识别气泡...");
+    setStatus(mode === 'full' ? "AI 逐句翻译排版中 (保留多媒体)..." : "AI 正在重构排版...");
     
     try {
       const genAI = new GoogleGenerativeAI(aiKey);
       const model = genAI.getGenerativeModel({ model: modelId });
       
       const prompt = `
-        你是一个排版秘书。必须严格遵守以下格式范例，严禁自作主张。
-        
-        【格式范例】
-        输入：민규: "안녕"
-        输出：[bubble:L]민규: "안녕"[/bubble]
-        
-        输入：원우: "잘 가"
-        输出：[bubble:R]원우: "잘 가"[/bubble]
+        你是一个专业的同人档案馆排版专家。请处理以下从 Postype 复制的原文（可能是纯文本或带 HTML 标签）：
 
-        输入：这是心理活动或独白
-        输出：[quote]这是心理活动或独白[/quote]
+        【核心任务】
+        1. ${mode === 'full' ? '将韩文高品质翻译成中文，严禁机翻味，保留原作者情感。' : '保持原文语言，绝对不要翻译。'}
+        2. 严格使用以下译名对照表：\n${nameMap}
 
-        【任务要求】
-        1. ${mode === 'full' ? '将韩文翻译成中文，严禁删减内容。' : '保持原文语言，不要翻译。'}
-        2. 必须成对使用标签，必须有开头的 [tag] 和结尾的 [/tag]。
-        3. 保留原文所有的 **加粗** 和 *斜体*。
-        4. 使用以下译名：\n${nameMap}
-        
-        直接输出结果，不要任何多余解释。原文如下：\n${aiInput}
+        【排版与标签规则 - 必须严格遵守】
+        1. 对话气泡：如果是民规说话，用 [bubble:L]内容[/bubble]；如果是圆佑说话，用 [bubble:R]内容[/bubble]。
+        2. 心理活动/独白：用 [quote]内容[/quote] 括起来。
+        3. 场景分割线：统一替换为 ---。
+        4. 视频与多媒体：
+           - 如果看到 bilibili 链接 (包含 BV 号)，必须转为 [bvid:BVxxxx] 格式。
+           - 如果看到 YouTube 链接或其他视频 iframe，保留链接并用 [box]视频地址[/box] 括起来。
+           - 绝对不要删除任何图片链接、占位符或视频地址！
+        5. 行间距优化：清理多余的空白行，确保段落之间只有 1 个空行。
+
+        直接输出处理好的纯净文本（带标签），不要包含任何Markdown代码块标记（如 \`\`\`html），不要说任何废话。
+        原文内容如下：
+        \n${aiInput}
       `;
 
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      setContent(text);
-      setStatus("处理完成，请检查标签是否闭合。");
+      
+      // 去除可能产生的 markdown 标记
+      const cleanText = text.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '').trim();
+      
+      setContent(cleanText);
+      setStatus("处理完成，请在右侧检查并保存。");
     } catch (err: any) { 
       alert("AI 报错: " + err.message);
+      setStatus(`错误: ${err.message}`);
     } finally { setIsAiLoading(false); }
   };
 
-  // --- GitHub 发布逻辑 (保持最稳版本) ---
+  // --- GitHub 发布逻辑 (原封不动，最稳版本) ---
   const fetchStories = async () => {
     try {
       const res = await fetch(`/stories/index.json?v=${Date.now()}`);
@@ -150,6 +160,19 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
   };
 
+  const handleEdit = (story: any, fileName: string, cTitle: string = '') => {
+    setEditingId(story.id); setEditingFileName(fileName); setTitle(story.title); setAuthor(story.author || ''); setPublishDate(story.date || new Date().toISOString().split('T')[0]); setSourceLink(story.sourceLink || ''); setChapterTitle(cTitle);
+    setStatus('正在拉取文章内容...'); setView('create');
+    const octokit = new Octokit({ auth: token });
+    octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`, request: { cache: 'no-store' } }).then(({ data }: any) => {
+      setContent(decodeURIComponent(escape(atob(data.content)))); setStatus('内容加载完毕'); setEditingFileSha(data.sha);
+    }).catch(() => setStatus('拉取内容失败'));
+  };
+
+  const handleAddChapter = (story: any) => {
+    setEditingId(story.id); setEditingFileName(null); setTitle(story.title); setAuthor(story.author || ''); setPublishDate(story.date || new Date().toISOString().split('T')[0]); setSourceLink(story.sourceLink || ''); setChapterTitle(''); setContent(''); setView('create'); setStatus('准备添加新章节');
+  };
+
   return (
     <div className="min-h-screen p-4 max-w-[1440px] mx-auto font-sans text-sm text-slate-800 dark:text-slate-200">
       <header className="flex flex-wrap justify-between items-center mb-6 pb-4 border-b dark:border-white/10 gap-4">
@@ -190,13 +213,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <div className="flex justify-between items-center text-blue-600 uppercase tracking-widest font-black">
                <h3 className="flex items-center gap-2"><Eraser size={18}/> Step 1: Input & Magic</h3>
                <div className="flex gap-2">
-                  <button onClick={() => handleAIAssist('tags_only')} className="px-3 py-1.5 border border-blue-500 text-blue-500 rounded-full text-[10px] font-bold hover:bg-blue-500 hover:text-white transition-all">仅排版</button>
-                  <button onClick={() => handleAIAssist('full')} className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-bold hover:bg-blue-700 flex items-center gap-1"><Sparkles size={12}/> 翻译+排版</button>
+                  <button onClick={() => handleAIAssist('tags_only')} className="px-3 py-1.5 border border-blue-500 text-blue-500 rounded-full text-[10px] font-bold hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50" disabled={isAiLoading}>仅排版</button>
+                  <button onClick={() => handleAIAssist('full')} className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-bold hover:bg-blue-700 flex items-center gap-1 disabled:opacity-50" disabled={isAiLoading}>
+                    {isAiLoading ? <span className="animate-pulse">处理中...</span> : <><Sparkles size={12}/> 翻译+排版</>}
+                  </button>
                </div>
             </div>
             <div className="bg-slate-100 dark:bg-black/20 p-4 rounded-2xl border dark:border-white/5">
               <textarea value={nameMap} onChange={e => setNameMap(e.target.value)} className="w-full h-14 bg-white dark:bg-black/40 p-2 rounded-xl text-[10px] font-mono outline-none mb-4 border dark:border-white/5" placeholder="译名对照: 민규:玟奎" />
-              <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} className="w-full h-[500px] bg-white dark:bg-black/40 p-4 rounded-xl outline-none text-sm font-serif leading-relaxed" placeholder="在此贴入 Postype 韩文原文..." />
+              <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} className="w-full h-[500px] bg-white dark:bg-black/40 p-4 rounded-xl outline-none text-sm font-serif leading-relaxed" placeholder="在此贴入 Postype 韩文原文（哪怕是乱糟糟的格式也没关系）..." />
             </div>
           </div>
 
@@ -220,8 +245,16 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                   ))}
                </div>
                <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[400px] bg-slate-50 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base font-serif" placeholder="在此手动校对结果..." />
+               
+               {/* 状态提示栏 */}
+               {status && (
+                 <div className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                   {status}
+                 </div>
+               )}
+
                <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-widest uppercase bg-blue-600 text-white shadow-2xl active:scale-95 transition-all disabled:bg-slate-400">
-                 {isPublishing ? status : editingFileName ? 'Save Changes / 保存修改' : 'Post Story / 立即发布'}
+                 {isPublishing ? '发布中...' : editingFileName ? 'Save Changes / 保存修改' : 'Post Story / 立即发布'}
                </button>
             </div>
           </div>
