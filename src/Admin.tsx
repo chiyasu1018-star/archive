@@ -44,7 +44,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       // 升级到 2.0 模型，不仅翻译更准，而且绝对不会报 404
 // 如果 gemini-2.0 报 429（额度0），请务必换成下面这个。
 // 虽然名字看起来没那么新，但它是目前 Google 给免费 Key 开放额度最稳的“劳模”。
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
       const prompt = mode === 'full' 
       ? `你是一个专业的韩译中排版助手。任务：翻译以下文字。要求：1.严禁漏译，保留所有段落细节。2.译名：\n${nameMap}\n3.自动标签：对话用 [bubble:L] 和 [bubble:R] 交替包裹；书信独白用 [quote]。直接输出译文：\n${aiInput}`
       : `不要翻译。任务：识别文字中的对话和引用，打上 [bubble] 和 [quote] 标签。直接输出带标签的原文：\n${aiInput}`;
