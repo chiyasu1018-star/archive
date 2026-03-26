@@ -14,7 +14,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [token, setToken] = useState(localStorage.getItem('gh_token') || '');
   const [aiKey, setAiKey] = useState(localStorage.getItem('gemini_key') || '');
   // ✅ 默认切换为 Google 免费且最快的 gemini-2.0-flash 模型
-  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-2.0-flash');
+  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-2.5-flash');
   
   const [view, setView] = useState<'create' | 'list'>('create'); 
   const [stories, setStories] = useState<any[]>([]); 
