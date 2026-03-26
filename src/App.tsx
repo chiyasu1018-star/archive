@@ -14,18 +14,16 @@ interface Story { id: string; title: string; author: string; date: string; fileN
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
-  const [showChapterList, setShowChapterList] = useState(false);
-  const [fontSize, setFontSize] = useState(18);
+  const [showChapterList, setShowChapterList] = useState(false); 
+  const [fontSize, setFontSize] = useState(18); 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
-  const ITEMS_PER_PAGE = 8;
+  const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
-
-  // 这里的路径如果是 Vercel 部署，必须用绝对路径 '/'
   const API_BASE = '/stories/';
 
   useEffect(() => {
@@ -42,7 +40,6 @@ export default function App() {
     setCurrentStory(story);
     if (story.chapters && story.chapters.length > 0) {
       setShowChapterList(true);
-      // 异步获取章节字数，不阻塞页面跳转
       story.chapters.forEach(async (ch, idx) => {
         if (!ch.autoWordCount) {
           try {
@@ -55,9 +52,7 @@ export default function App() {
           } catch (e) {}
         }
       });
-    } else {
-      loadFullStory(story, story.fileName!);
-    }
+    } else { loadFullStory(story, story.fileName!); }
   };
 
   const loadFullStory = async (parentStory: Story, fileName: string, chapterTitle?: string) => {
@@ -67,9 +62,9 @@ export default function App() {
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       setCurrentStory({ ...parentStory, content: text, wordCount: count, currentChapterTitle: chapterTitle });
-      setShowChapterList(false);
+      setShowChapterList(false); 
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) { alert("读取文章失败，请检查网络或文件是否存在"); }
+    } catch (err) { alert("读取文章失败"); } 
     finally { setReading(false); }
   };
 
@@ -81,6 +76,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // --- 智能行内样式：兼容空格 ---
   const applyInlineStyles = (text: string) => {
     if (!text) return '';
     return text
@@ -101,7 +97,7 @@ export default function App() {
                 <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
                   <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
                   <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
-                  <p className="mb-12 text-xs leading-relaxed opacity-60 tracking-widest">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
+                  <p className="mb-12 text-xs leading-relaxed opacity-60 tracking-widest text-center">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
                     <button onClick={() => setHasConfirmedAge(true)} className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity">LEAVE / 离开</button>
@@ -111,7 +107,7 @@ export default function App() {
                 <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
                   <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
                   <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">期待下次相遇</h2>
-                  <p className="text-xs leading-relaxed opacity-60 tracking-widest">喵<br/>喵喵喵</p>
+                  <p className="text-xs leading-relaxed opacity-60 tracking-widest text-center text-center">喵<br/>喵喵喵</p>
                   <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
                 </motion.div>
               )}
@@ -125,9 +121,7 @@ export default function App() {
                   <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-bold transition-opacity ${isDarkMode ? 'text-white/60 hover:text-white' : 'opacity-60 hover:opacity-100'}`}>
                     <ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}
                   </button>
-                ) : (
-                  <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30 text-[#333] dark:text-white">HW / ARCHIVE</h1>
-                )}
+                ) : ( <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30 text-[#333] dark:text-white">HW / ARCHIVE</h1> )}
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
@@ -145,29 +139,20 @@ export default function App() {
               <AnimatePresence mode="wait">
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <header className="text-center py-12 text-[#333] dark:text-white">
-                      <h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1>
-                    </header>
+                    <header className="text-center py-12 text-[#333] dark:text-white"><h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1></header>
                     <section className="max-w-[700px] mx-auto">
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
-                          <div className="flex items-baseline gap-3">
-                             <h3 className="text-xl font-medium mb-1">{s.title}</h3>
-                             {s.chapters && <BookOpen size={14} className="opacity-30" />}
-                          </div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans">
-                            <span>{s.author}</span>
-                            <span>{s.date?.replace(/-/g, '.')}</span>
-                            {s.chapters && <span>{s.chapters.length} 章节</span>}
-                          </div>
+                          <div className="flex items-baseline gap-3"><h3 className="text-xl font-medium mb-1">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans"><span>{s.author}</span><span>{s.date?.replace(/-/g, '.')}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
                         </motion.button>
                       ))}
                     </section>
                     {totalPages > 1 && (
                       <div className="flex justify-center items-center gap-12 mt-20 py-10 border-t border-dashed border-black/5 dark:border-white/5">
-                        <button onClick={() => { setCurrentPage(p => Math.max(p-1, 1)); window.scrollTo({top:0, behavior:'smooth'}); }} disabled={currentPage === 1} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>← PREV</button>
+                        <button onClick={() => { setCurrentPage(p => Math.max(p - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === 1} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>← PREV</button>
                         <span className="text-[10px] opacity-20 tracking-[0.3em] uppercase">{currentPage} / {totalPages}</span>
-                        <button onClick={() => { setCurrentPage(p => Math.min(p+1, totalPages)); window.scrollTo({top:0, behavior:'smooth'}); }} disabled={currentPage === totalPages} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>NEXT →</button>
+                        <button onClick={() => { setCurrentPage(p => Math.min(p + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === totalPages} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>NEXT →</button>
                       </div>
                     )}
                   </motion.div>
@@ -191,52 +176,71 @@ export default function App() {
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>) : (
-                      <>
-                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
-                          {(() => {
-                            const raw = currentStory.content || '';
-                            const cleanRaw = raw.replace(/\r\n/g, '\n').replace(/^\s*(\[[\/]?\w+.*?\]|---)\s*$/gm, '$1');
-                            const blockRegex = /(\[quote\][\s\S]*?\[\/quote\]|\[box\][\s\S]*?\[\/box\]|\[bubble:[LR]\][\s\S]*?\[\/bubble\]|\[bvid:[a-zA-Z0-9]+\]|---)/g;
-                            const parts = cleanRaw.split(blockRegex);
+                      <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
+                        {(() => {
+                          const raw = currentStory.content || '';
+                          // 1. 规范化换行并清理无意义的标签前后空格，但绝对保留段落间的空行
+                          const cleanRaw = raw.replace(/\r\n/g, '\n');
+                          
+                          // 2. 超强正则：识别特殊块。增加对标签内部空格的容错 [\s]*
+                          const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|---)/g;
+                          
+                          const parts = cleanRaw.split(blockRegex);
+                          
+                          return parts.map((part, idx) => {
+                            if (!part) return null;
                             
-                            return parts.map((part, idx) => {
-                                if (!part) return null;
-                                // 块级组件解析
-                                if (part.includes('[quote]')) {
-                                    const inner = part.replace(/\[\/?quote\]/g, '').trim();
-                                    return (<blockquote key={idx} className="my-10 pl-5 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-6 rounded-r-xl">{inner.split('\n').map((l, i) => (<p key={i} className={l.trim() ? "mb-2 last:mb-0" : "h-4"} dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) || '&nbsp;' }} />))}</blockquote>);
-                                }
-                                if (part.includes('[box]')) {
-                                    const inner = part.replace(/\[\/?box\]/g, '').trim();
-                                    return (<div key={idx} className="my-10 p-8 bg-slate-100/60 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl text-sm leading-relaxed shadow-sm ring-1 ring-black/5 dark:ring-white/5">{inner.split('\n').map((l, i) => (<p key={i} className={l.trim() ? "mb-2 last:mb-0" : "h-4"} dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) || '&nbsp;' }} />))}</div>);
-                                }
-                                if (part.includes('[bubble:')) {
-                                    const isRight = part.includes('[bubble:R]');
-                                    const inner = part.replace(/\[bubble:[LR]\]/g, '').replace(/\[\/bubble\]/g, '').trim();
-                                    return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-2`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>{inner.split('\n').map((l, i) => (<p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) || '&nbsp;' }} />))}</div></div>);
-                                }
-                                if (part.includes('[bvid:')) {
-                                    const bvid = part.match(/\[bvid:([a-zA-Z0-9]+)\]/)?.[1];
-                                    return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
-                                }
-                                if (part === '---') return <hr key={idx} className="my-16 border-t border-black/10 dark:border-white/10" />;
-                                
-                                // 普通段落解析
-                                return part.split('\n').map((line, lIdx) => {
-                                    const cleanLine = line.trim();
-                                    if (!cleanLine && line.length === 0) return null;
-                                    if (!cleanLine) return <div key={lIdx} className="h-6" />;
-                                    return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
-                                });
+                            const trimmedPart = part.trim();
+
+                            // --- A. 引用 [quote] ---
+                            if (/\[\s*quote\s*\]/.test(part)) {
+                              const inner = part.replace(/\[\s*\/?quote\s*\]/g, '').trim();
+                              return (<blockquote key={idx} className="my-10 pl-5 border-l-4 border-slate-300 dark:border-slate-700 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-6 rounded-r-xl">{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</blockquote>);
+                            }
+
+                            // --- B. 方框 [box] ---
+                            if (/\[\s*box\s*\]/.test(part)) {
+                              const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
+                              return (<div key={idx} className="my-10 p-8 bg-slate-100/60 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl text-sm leading-relaxed shadow-sm ring-1 ring-black/5 dark:ring-white/5">{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
+                            }
+
+                            // --- C. 气泡 [bubble] ---
+                            if (/\[\s*bubble:/.test(part)) {
+                              const isRight = part.includes(':R');
+                              const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
+                              return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-4`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-2" />)}</div></div>);
+                            }
+
+                            // --- D. 视频 [bvid] ---
+                            if (/\[\s*bvid:/.test(part)) {
+                              const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
+                              return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
+                            }
+
+                            // --- E. 分割线 ---
+                            if (trimmedPart === '---') return <hr key={idx} className="my-16 border-t border-black/10 dark:border-white/10" />;
+
+                            // --- F. 普通文字段落（核心修复：保留空行） ---
+                            return part.split('\n').map((line, lIdx) => {
+                              // 如果这一行完全是空的（或者是只有换行符）
+                              if (line === '') return <div key={lIdx} className="h-8" />; // 这是你的留白
+                              
+                              return (
+                                <p 
+                                  key={`${idx}-${lIdx}`} 
+                                  className="mb-5 min-h-[1.5em]" 
+                                  dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} 
+                                />
+                              );
                             });
-                          })()}
-                        </article>
-                        <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
-                           <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                           <button onClick={() => window.scrollTo({top:0, behavior:'smooth'})} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:border-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
-                        </div>
-                      </>
+                          });
+                        })()}
+                      </article>
                     )}
+                    <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
+                       <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
+                       <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
