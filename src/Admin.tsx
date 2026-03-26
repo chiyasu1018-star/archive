@@ -71,7 +71,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     
     try {
       const genAI = new GoogleGenerativeAI(aiKey);
-      const model = genAI.getGenerativeModel({ model: modelId });
+      const model = genAI.getGenerativeModel({ model:gemini-2.5-flash});
       
       const prompt = `
         任务：作为档案馆秘书，扫描处理 Postype 文章并输出带标签的格式。
