@@ -3,7 +3,7 @@ import { Octokit } from "octokit";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Sparkles, Wand2, Eraser, CheckSquare, Cpu
+  Minus, Video, PlusCircle, Square, Sparkles, Wand2, Eraser, CheckSquare, Cpu, Undo2, Link
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
@@ -11,16 +11,20 @@ const REPO_NAME = "archive";
 const BRANCH = "main";             
 
 export default function Admin({ onBack }: { onBack: () => void }) {
+  // --- 状态存储 ---
   const [token, setToken] = useState(localStorage.getItem('gh_token') || '');
   const [aiKey, setAiKey] = useState(localStorage.getItem('gemini_key') || '');
-  // ✅ 默认切换为 Google 免费且最快的 gemini-2.0-flash 模型
-  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-2.5-flash');
+  const [modelId, setModelId] = useState(localStorage.getItem('gemini_model') || 'gemini-2.0-flash');
   
   const [view, setView] = useState<'create' | 'list'>('create'); 
   const [stories, setStories] = useState<any[]>([]); 
   const [aiInput, setAiInput] = useState('');
+  const [postypeUrl, setPostypeUrl] = useState(''); // 新增链接输入
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [nameMap, setNameMap] = useState("민규:玟奎\n원우:圆佑");
+  const [nameMap, setNameMap] = useState("주왕：主汪\n동화：东花\n민제：旻帝");
+
+  const [content, setContent] = useState('');
+  const [history, setHistory] = useState<string[]>([]); // 撤回历史记录
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
@@ -30,77 +34,75 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]);
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
-  const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- 🌟 增强版：本地一键洗稿 ---
-  const handleLocalSmartFix = () => {
-    let text = content || aiInput;
-    
-    // 1. 清理 Postype 恶心的多余换行 (把3个及以上的连续换行变成2个)
-    text = text.replace(/\n{3,}/g, '\n\n');
-    
-    // 2. 自动抠出所有B站链接并转为 [bvid:...] 标签
-    const bvidRegex = /https?:\/\/www\.bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/ig;
-    text = text.replace(bvidRegex, '\n[bvid:$1]\n');
-    
-    // 3. 规范化分割线
-    text = text.replace(/^[—\-_*]{3,}$/gm, '---');
-    
-    setContent(text);
-    setStatus("本地格式优化完成！空行与链接已清洗。");
+  // --- 🌟 核心：历史状态同步（撤回用） ---
+  const pushToHistory = (newText: string) => {
+    setHistory(prev => [...prev, content]);
+    setContent(newText);
   };
 
-  // --- 🤖 增强版：AI 处理函数 ---
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const last = history[history.length - 1];
+    setHistory(prev => prev.slice(0, -1));
+    setContent(last);
+  };
+
+  // --- 🌟 核心：智能排版与一键纠错 ---
+  const handleLocalSmartFix = () => {
+    let text = content || aiInput;
+    // 自动抠出所有B站链接并转为 [bvid:...]
+    const bvidRegex = /https?:\/\/www\.bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/ig;
+    text = text.replace(bvidRegex, '\n[bvid:$1]\n');
+    // 规范化分割线
+    text = text.replace(/^[—\-_*]{3,}$/gm, '---');
+    // 清理极端重复的回车
+    text = text.replace(/\n{4,}/g, '\n\n\n');
+    pushToHistory(text);
+    setStatus("本地一键优化完成");
+  };
+
+  // --- 🤖 核心：AI 扫描+翻译+自动标签 ---
   const handleAIAssist = async (mode: 'full' | 'tags_only') => {
-    if (!aiKey) return alert("请先填写顶部的 Gemini Key");
-    if (!aiInput) return alert("请在左侧贴入原文");
+    if (!aiKey) return alert("请先填写 Gemini Key");
+    if (!aiInput) return alert("请在左侧贴入原文内容");
     setIsAiLoading(true);
-    setStatus(mode === 'full' ? "AI 逐句翻译排版中 (保留多媒体)..." : "AI 正在重构排版...");
+    setStatus("AI 扫描排版中...");
     
     try {
       const genAI = new GoogleGenerativeAI(aiKey);
       const model = genAI.getGenerativeModel({ model: modelId });
       
       const prompt = `
-        你是一个专业的同人档案馆排版专家。请处理以下从 Postype 复制的原文（可能是纯文本或带 HTML 标签）：
+        任务：扫描处理 Postype 文章并输出带标签的格式。
+        
+        【规则要求】
+        1. ${mode === 'full' ? '韩译中：逐句翻译，保留所有描写和情感细节。' : '禁止翻译：保留原文语言。'}
+        2. 对话识别：
+           - 如果是 ${nameMap.split('\n')[0]?.split(':')[1] || '主角A'} 说话 -> [bubble:L]内容[/bubble]
+           - 如果是 ${nameMap.split('\n')[1]?.split(':')[1] || '主角B'} 说话 -> [bubble:R]内容[/bubble]
+           - 必须成对闭合标签！
+        3. 心理/独白：识别内心戏用 [quote]内容[/quote]。
+        4. 留白：原作者留下的空白行必须保留（转为\\n\\n）。
+        5. 词典映射：\n${nameMap}
 
-        【核心任务】
-        1. ${mode === 'full' ? '将韩文高品质翻译成中文，严禁机翻味，保留原作者情感。' : '保持原文语言，绝对不要翻译。'}
-        2. 严格使用以下译名对照表：\n${nameMap}
-
-        【排版与标签规则 - 必须严格遵守】
-        1. 对话气泡：如果是民规说话，用 [bubble:L]内容[/bubble]；如果是圆佑说话，用 [bubble:R]内容[/bubble]。
-        2. 心理活动/独白：用 [quote]内容[/quote] 括起来。
-        3. 场景分割线：统一替换为 ---。
-        4. 视频与多媒体：
-           - 如果看到 bilibili 链接 (包含 BV 号)，必须转为 [bvid:BVxxxx] 格式。
-           - 如果看到 YouTube 链接或其他视频 iframe，保留链接并用 [box]视频地址[/box] 括起来。
-           - 绝对不要删除任何图片链接、占位符或视频地址！
-        5. 行间距优化：清理多余的空白行，确保段落之间只有 1 个空行。
-
-        直接输出处理好的纯净文本（带标签），不要包含任何Markdown代码块标记（如 \`\`\`html），不要说任何废话。
-        原文内容如下：
-        \n${aiInput}
+        请直接输出带标签的正文，禁止任何 Markdown 代码包裹符，不要废话。
+        原文如下：\n${aiInput}
       `;
 
       const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      
-      // 去除可能产生的 markdown 标记
-      const cleanText = text.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '').trim();
-      
-      setContent(cleanText);
-      setStatus("处理完成，请在右侧检查并保存。");
+      const text = result.response.text().replace(/^```[\s\S]*?\n/, '').replace(/```$/, '').trim();
+      pushToHistory(text);
+      setStatus("处理成功！");
     } catch (err: any) { 
-      alert("AI 报错: " + err.message);
-      setStatus(`错误: ${err.message}`);
+      alert("AI 罢工: " + err.message);
     } finally { setIsAiLoading(false); }
   };
 
-  // --- GitHub 发布逻辑 (原封不动，最稳版本) ---
+  // --- 📂 GitHub 发布与列表逻辑 ---
   const fetchStories = async () => {
     try {
       const res = await fetch(`/stories/index.json?v=${Date.now()}`);
@@ -114,19 +116,17 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     e.preventDefault();
     const textarea = textareaRef.current;
     if (!textarea) return;
-    const savedScrollTop = textarea.scrollTop;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('bvid') || openTag.includes('---') || openTag.includes('box');
-    let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
-    setContent(content.substring(0, start) + textToInsert + content.substring(end));
-    setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
+    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box');
+    let textToInsert = isBlock ? `\n${openTag}\n${content.substring(start, end) || '内容'}\n${closeTag}\n` : `${openTag}${content.substring(start, end)}${closeTag}`;
+    pushToHistory(content.substring(0, start) + textToInsert + content.substring(end));
+    setTimeout(() => { textarea.focus(); }, 10);
   };
 
   const handlePublish = async () => {
-    if (!token || !title || !content) return alert("信息填写不全");
-    setIsPublishing(true); setStatus('同步至 GitHub...');
+    if (!token || !title || !content) return alert("信息不全");
+    setIsPublishing(true); setStatus('同步中...');
     try {
       const octokit = new Octokit({ auth: token });
       const storyId = editingId || Date.now().toString();
@@ -136,7 +136,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           try { const { data: f } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${editingFileName}`, request: { cache: 'no-store' } }); // @ts-ignore
           currentSha = f.sha; } catch (e) {}
       }
-      await octokit.rest.repos.createOrUpdateFileContents({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`, message: `Post: ${title}`, content: btoa(unescape(encodeURIComponent(content))), sha: currentSha, branch: BRANCH });
+      await octokit.rest.repos.createOrUpdateFileContents({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`, message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))), sha: currentSha, branch: BRANCH });
       const { data: idxF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } }); // @ts-ignore
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
@@ -146,11 +146,12 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         indexData = [newS, ...indexData];
       } else {
         const s = indexData[idx]; s.title = title; s.author = author; s.date = publishDate; s.sourceLink = sourceLink;
-        if (editingFileName) {
-          if (s.chapters) { const ci = s.chapters.findIndex((c: any) => c.fileName === editingFileName); if (ci !== -1) s.chapters[ci].title = chapterTitle; }
-        } else {
+        if (!editingFileName) {
           if (!s.chapters) { s.chapters = [{ title: "第 1 节", fileName: s.fileName }, { title: chapterTitle, fileName }]; delete s.fileName; }
           else s.chapters.push({ title: chapterTitle, fileName });
+        } else if (s.chapters) {
+          const ci = s.chapters.findIndex((c: any) => c.fileName === editingFileName);
+          if (ci !== -1) s.chapters[ci].title = chapterTitle;
         }
       }
       await octokit.rest.repos.createOrUpdateFileContents({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, // @ts-ignore
@@ -162,99 +163,94 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   const handleEdit = (story: any, fileName: string, cTitle: string = '') => {
     setEditingId(story.id); setEditingFileName(fileName); setTitle(story.title); setAuthor(story.author || ''); setPublishDate(story.date || new Date().toISOString().split('T')[0]); setSourceLink(story.sourceLink || ''); setChapterTitle(cTitle);
-    setStatus('正在拉取文章内容...'); setView('create');
+    setStatus('拉取中...'); setView('create');
     const octokit = new Octokit({ auth: token });
     octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`, request: { cache: 'no-store' } }).then(({ data }: any) => {
-      setContent(decodeURIComponent(escape(atob(data.content)))); setStatus('内容加载完毕'); setEditingFileSha(data.sha);
-    }).catch(() => setStatus('拉取内容失败'));
-  };
-
-  const handleAddChapter = (story: any) => {
-    setEditingId(story.id); setEditingFileName(null); setTitle(story.title); setAuthor(story.author || ''); setPublishDate(story.date || new Date().toISOString().split('T')[0]); setSourceLink(story.sourceLink || ''); setChapterTitle(''); setContent(''); setView('create'); setStatus('准备添加新章节');
+      setContent(decodeURIComponent(escape(atob(data.content)))); setStatus('加载完成'); setEditingFileSha(data.sha);
+    }).catch(() => setStatus('拉取失败'));
   };
 
   return (
-    <div className="min-h-screen p-4 max-w-[1440px] mx-auto font-sans text-sm text-slate-800 dark:text-slate-200">
+    <div className="min-h-screen p-4 max-w-[1500px] mx-auto font-sans text-sm text-slate-800 dark:text-slate-200">
+      {/* 顶部：双 Key 管理 + 模型切换 */}
       <header className="flex flex-wrap justify-between items-center mb-6 pb-4 border-b dark:border-white/10 gap-4">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold hover:text-black dark:hover:text-white transition-colors shrink-0"><ChevronLeft size={16}/> EXIT</button>
+        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 font-bold hover:text-blue-500 transition-colors shrink-0"><ChevronLeft size={20}/> EXIT</button>
         <div className="flex gap-2 items-center ml-auto">
-            <div className="flex items-center gap-2 bg-purple-500/5 px-3 py-1.5 rounded-full border border-purple-500/20"><Cpu size={14} className="text-purple-500"/><input type="text" value={modelId} onChange={e => { setModelId(e.target.value); localStorage.setItem('gemini_model', e.target.value); }} className="bg-transparent w-32 text-[10px] outline-none" placeholder="Model ID" /></div>
-            <div className="flex items-center gap-2 bg-blue-500/5 px-3 py-1.5 rounded-full border border-blue-500/20"><Sparkles size={14} className="text-blue-500"/><input type="password" value={aiKey} onChange={e => { setAiKey(e.target.value); localStorage.setItem('gemini_key', e.target.value); }} className="bg-transparent w-32 text-[10px] outline-none" placeholder="Gemini Key" /></div>
-            <div className="flex items-center gap-2 bg-slate-500/5 px-3 py-1.5 rounded-full border border-black/10"><Key size={14} className="opacity-40"/><input type="password" value={token} onChange={e => { setToken(e.target.value); localStorage.setItem('gh_token', e.target.value); }} className="bg-transparent w-32 text-[10px] outline-none" placeholder="GitHub Token" /></div>
-            <button onClick={() => setView(view === 'create' ? 'list' : 'create')} className="bg-slate-900 text-white dark:bg-white dark:text-black px-5 py-1.5 rounded-full font-bold uppercase text-[10px] hover:scale-105 transition-all">
+            <div className="flex items-center gap-2 bg-purple-500/5 px-3 py-1.5 rounded-xl border border-purple-500/20"><Cpu size={14} className="text-purple-500"/><input type="text" value={modelId} onChange={e => { setModelId(e.target.value); localStorage.setItem('gemini_model', e.target.value); }} className="bg-transparent w-28 text-[10px] outline-none" placeholder="Model ID" /></div>
+            <div className="flex items-center gap-2 bg-blue-500/5 px-3 py-1.5 rounded-xl border border-blue-500/20"><Sparkles size={14} className="text-blue-500"/><input type="password" value={aiKey} onChange={e => { setAiKey(e.target.value); localStorage.setItem('gemini_key', e.target.value); }} className="bg-transparent w-28 text-[10px] outline-none" placeholder="Gemini Key" /></div>
+            <div className="flex items-center gap-2 bg-slate-500/5 px-3 py-1.5 rounded-xl border border-black/10"><Key size={14} className="opacity-40"/><input type="password" value={token} onChange={e => { setToken(e.target.value); localStorage.setItem('gh_token', e.target.value); }} className="bg-transparent w-28 text-[10px] outline-none" placeholder="GH Token" /></div>
+            <button onClick={() => setView(view === 'create' ? 'list' : 'create')} className="bg-blue-600 text-white px-5 py-2 rounded-xl font-black uppercase text-xs transition-all hover:bg-blue-700">
                 {view === 'create' ? 'Manage' : 'New Story'}
             </button>
         </div>
       </header>
 
       {view === 'list' ? (
-        <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
-            <h2 className="text-2xl font-black mb-6">Archive Management</h2>
+        <div className="max-w-3xl mx-auto space-y-4 animate-in fade-in">
+            <div className="flex justify-between items-center mb-6"><h2 className="text-3xl font-black font-serif uppercase tracking-tight">Archive Management</h2><button onClick={fetchStories} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all"><RefreshCw size={18} /></button></div>
             {stories.map(s => (
-                <div key={s.id} className="p-5 border dark:border-white/10 rounded-2xl bg-white/50 dark:bg-black/20">
+                <div key={s.id} className="p-6 border dark:border-white/10 rounded-3xl bg-white dark:bg-black/20 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
-                        <div><span className="font-bold text-lg block">{s.title}</span><span className="text-[10px] opacity-40 uppercase">{s.date} · {s.author}</span></div>
-                        <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
+                        <div><span className="font-bold text-xl block">{s.title}</span><span className="text-xs opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
+                        <button onClick={() => { setEditingId(s.id); setEditingFileName(null); setTitle(s.title); setAuthor(s.author); setChapterTitle(`第 ${s.chapters?.length + 1 || 2} 节`); setSourceLink(s.sourceLink || ''); setView('create'); setContent(''); setAiInput(''); }} className="flex items-center gap-1 px-4 py-2 bg-slate-900 text-white dark:bg-white dark:text-black rounded-full text-xs font-black transition-all hover:scale-105"><PlusCircle size={14}/> 续传/分P</button>
                     </div>
-                    <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-3">
+                    <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-4">
                         {s.chapters ? s.chapters.map((c: any, i: number) => (
-                            <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-lg text-xs hover:border-blue-500 transition-all">{c.title}</button>
+                            <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl text-sm font-medium hover:text-blue-600 transition-all">{c.title}</button>
                         )) : (
-                            <button onClick={() => handleEdit(s, s.fileName)} className="px-3 py-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-lg text-xs hover:border-blue-500 transition-all text-blue-500 italic">单页内容 (点击编辑)</button>
+                            <button onClick={() => handleEdit(s, s.fileName)} className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl text-sm italic">单页全文 (点击编辑)</button>
                         )}
                     </div>
                 </div>
             ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Step 1: 原文输入 */}
-          <div className="space-y-4 flex flex-col sticky top-4">
-            <div className="flex justify-between items-center text-blue-600 uppercase tracking-widest font-black">
-               <h3 className="flex items-center gap-2"><Eraser size={18}/> Step 1: Input & Magic</h3>
-               <div className="flex gap-2">
-                  <button onClick={() => handleAIAssist('tags_only')} className="px-3 py-1.5 border border-blue-500 text-blue-500 rounded-full text-[10px] font-bold hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50" disabled={isAiLoading}>仅排版</button>
-                  <button onClick={() => handleAIAssist('full')} className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-bold hover:bg-blue-700 flex items-center gap-1 disabled:opacity-50" disabled={isAiLoading}>
-                    {isAiLoading ? <span className="animate-pulse">处理中...</span> : <><Sparkles size={12}/> 翻译+排版</>}
-                  </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-120px)]">
+          {/* Step 1: 输入 */}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center text-blue-500 font-black uppercase tracking-widest"><h3 className="flex items-center gap-2"><Link size={18}/> Step 1: Input Content</h3><div className="flex gap-2">
+                <button onClick={() => handleAIAssist('tags_only')} disabled={isAiLoading} className="px-4 py-2 border-2 border-blue-500 text-blue-500 rounded-xl text-xs font-black hover:bg-blue-500 hover:text-white transition-all">仅排版</button>
+                <button onClick={() => handleAIAssist('full')} disabled={isAiLoading} className="px-5 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 shadow-lg transition-all flex items-center gap-2">{isAiLoading ? <RefreshCw size={14} className="animate-spin"/> : <Sparkles size={14}/>} 翻译+排版</button>
+            </div></div>
+            <div className="flex-1 bg-slate-100 dark:bg-black/40 rounded-3xl p-6 border-2 border-dashed dark:border-white/10 flex flex-col gap-4">
+               <div className="flex-1 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <input value={postypeUrl} onChange={e => { setPostypeUrl(e.target.value); setSourceLink(e.target.value); }} className="flex-1 bg-white dark:bg-white/5 p-3 rounded-2xl outline-none text-xs" placeholder="[可选] 贴入 Postype 链接以备用..." />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black opacity-30 uppercase tracking-widest ml-1">Translation Dictionary / 译名字典 (韩文:中文)</span>
+                    <textarea value={nameMap} onChange={e => setNameMap(e.target.value)} className="w-full h-12 bg-white dark:bg-white/5 p-3 rounded-2xl text-[10px] outline-none" />
+                  </div>
+                  <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} className="w-full flex-1 bg-transparent outline-none text-sm font-serif leading-relaxed resize-none mt-2" placeholder="在此粘贴 Postype 的原文文本..." />
                </div>
-            </div>
-            <div className="bg-slate-100 dark:bg-black/20 p-4 rounded-2xl border dark:border-white/5">
-              <textarea value={nameMap} onChange={e => setNameMap(e.target.value)} className="w-full h-14 bg-white dark:bg-black/40 p-2 rounded-xl text-[10px] font-mono outline-none mb-4 border dark:border-white/5" placeholder="译名对照: 민규:玟奎" />
-              <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} className="w-full h-[500px] bg-white dark:bg-black/40 p-4 rounded-xl outline-none text-sm font-serif leading-relaxed" placeholder="在此贴入 Postype 韩文原文（哪怕是乱糟糟的格式也没关系）..." />
             </div>
           </div>
 
-          {/* Step 2: 最终编辑 */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-slate-400 uppercase tracking-widest font-black">
-               <h3 className="flex items-center gap-2"><CheckSquare size={18}/> Step 2: Final Calibration</h3>
-               <button onClick={handleLocalSmartFix} className="px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-full text-[10px] font-bold flex items-center gap-1 hover:bg-amber-500 hover:text-white transition-all"><Wand2 size={12}/> 本地一键纠错</button>
-            </div>
-            <div className="bg-white dark:bg-black/20 p-6 rounded-2xl border dark:border-white/10 space-y-4 shadow-xl shadow-xl">
-               <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-xl font-black outline-none focus:border-blue-500 transition-all" placeholder="总标题..." />
-               <div className="grid grid-cols-2 gap-4">
-                  <input value={author} onChange={e => setAuthor(e.target.value)} className="bg-slate-100 dark:bg-white/5 p-2.5 rounded-xl outline-none" placeholder="作者" />
-                  <input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="bg-slate-100 dark:bg-white/5 p-2.5 rounded-xl outline-none" />
-                  <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="bg-blue-500/5 dark:bg-blue-500/10 p-2.5 rounded-xl outline-none border border-blue-500/20 text-blue-600 font-bold" placeholder="章节名" />
-                  <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="bg-slate-100 dark:bg-white/5 p-2.5 rounded-xl outline-none" placeholder="原链接" />
+          {/* Step 2: 校对 */}
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center text-slate-400 font-black uppercase tracking-widest">
+               <h3 className="flex items-center gap-2"><Edit3 size={18}/> Step 2: Final Studio</h3>
+               <div className="flex gap-2">
+                  <button onClick={handleUndo} disabled={history.length === 0} className="px-4 py-2 bg-slate-200 dark:bg-white/10 rounded-xl text-xs font-black hover:bg-slate-300 transition-all flex items-center gap-1 disabled:opacity-30"><Undo2 size={14}/> 撤回</button>
+                  <button onClick={handleLocalSmartFix} className="px-4 py-2 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-xl text-xs font-black hover:bg-amber-500 hover:text-white transition-all flex items-center gap-1"><Wand2 size={14}/> 纠错</button>
                </div>
-               <div className="flex flex-wrap gap-2 pt-2 border-t dark:border-white/5">
+            </div>
+            <div className="flex-1 bg-white dark:bg-black/20 rounded-3xl p-8 border dark:border-white/10 shadow-2xl flex flex-col gap-4 overflow-y-auto overflow-x-hidden">
+               <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-4 border-slate-100 dark:border-white/5 py-1 text-3xl font-black outline-none focus:border-blue-500 transition-all font-serif" placeholder="总标题" />
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-2xl flex flex-col"><span className="text-[9px] font-black opacity-20 uppercase">Author</span><input value={author} onChange={e => setAuthor(e.target.value)} className="bg-transparent outline-none font-bold" /></div>
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-2xl flex flex-col"><span className="text-[9px] font-black opacity-20 uppercase">Date</span><input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="bg-transparent outline-none font-bold" /></div>
+                  <div className="bg-blue-50 dark:bg-blue-500/10 p-3 rounded-2xl flex flex-col border border-blue-500/20 text-blue-600"><span className="text-[9px] font-black opacity-40 uppercase tracking-widest">Chapter Title</span><input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="bg-transparent outline-none font-black font-serif" /></div>
+                  <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-2xl flex flex-col"><span className="text-[9px] font-black opacity-20 uppercase">Original Link</span><input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="bg-transparent outline-none text-[10px]" /></div>
+               </div>
+               <div className="flex flex-wrap gap-2 py-2 border-t dark:border-white/5">
                   {[ ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], ['---','',Minus], ['[bvid:',']',Video] ].map(([ot,ct,Icon]:any, i) => (
-                    <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/5 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={14}/></button>
+                    <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
                   ))}
                </div>
-               <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[400px] bg-slate-50 dark:bg-white/5 p-4 rounded-xl outline-none leading-relaxed text-base font-serif" placeholder="在此手动校对结果..." />
-               
-               {/* 状态提示栏 */}
-               {status && (
-                 <div className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                   {status}
-                 </div>
-               )}
-
-               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-4 rounded-full font-black tracking-widest uppercase bg-blue-600 text-white shadow-2xl active:scale-95 transition-all disabled:bg-slate-400">
-                 {isPublishing ? '发布中...' : editingFileName ? 'Save Changes / 保存修改' : 'Post Story / 立即发布'}
+               <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full flex-1 bg-transparent outline-none text-base font-serif leading-loose resize-none" placeholder="结果预览与手动纠错区..." />
+               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 active:scale-95 transition-all disabled:bg-slate-400">
+                 {isPublishing ? status : 'POST TO ARCHIVE'}
                </button>
             </div>
           </div>
