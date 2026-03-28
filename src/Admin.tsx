@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Youtube 
+  Minus, Video, PlusCircle, Square, Youtube, Undo2, RefreshCw 
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
@@ -15,6 +15,9 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [stories, setStories] = useState<any[]>([]); 
   const [isListLoading, setIsListLoading] = useState(false);
 
+  const [content, setContent] = useState('');
+  const [history, setHistory] = useState<string[]>([]); 
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
@@ -23,11 +26,24 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]);
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
-  const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // --- 核心：状态与撤回 ---
+  const pushToHistory = (newText: string) => {
+    setHistory(prev => [...prev, content]);
+    setContent(newText);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const last = history[history.length - 1];
+    setHistory(prev => prev.slice(0, -1));
+    setContent(last);
+  };
+
+  // --- 获取列表 ---
   const fetchStories = async () => {
     setIsListLoading(true);
     try {
@@ -40,6 +56,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchStories(); }, []);
 
+  // --- 插入标签 (防跳顶) ---
   const insertTag = (e: React.MouseEvent, openTag: string, closeTag: string = '') => {
     e.preventDefault();
     const textarea = textareaRef.current;
@@ -50,8 +67,11 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     const selectedText = content.substring(start, end);
     const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box') || openTag.includes('bvid') || openTag.includes('ytid');
     let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
-    setContent(content.substring(0, start) + textToInsert + content.substring(end));
-    setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
+    pushToHistory(content.substring(0, start) + textToInsert + content.substring(end));
+    setTimeout(() => { 
+      textarea.focus(); 
+      textarea.scrollTop = savedScrollTop; 
+    }, 10);
   };
 
   const handleAddChapter = (story: any) => {
@@ -59,11 +79,11 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
     setPublishDate(new Date().toISOString().split('T')[0]);
     setChapterTitle(`第 ${story.chapters ? story.chapters.length + 1 : 2} 节`);
-    setContent(''); setView('create'); setStatus(`准备为《${story.title}》添加新章节`);
+    setContent(''); setView('create'); setStatus(`续写新章节`);
   };
 
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
-    setIsPublishing(true); setStatus('读取中...');
+    setIsPublishing(true); setStatus('读取正文中...');
     try {
       const octokit = new Octokit({ auth: token });
       const { data: f } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`, request: { cache: 'no-store' } });
@@ -73,27 +93,41 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       setEditingFileSha(f.sha); setTitle(story.title); setAuthor(story.author);
       setPublishDate(story.date || new Date().toISOString().split('T')[0]);
       setSourceLink(story.sourceLink || ''); setChapterTitle(cTitle); setContent(text);
-      setView('create'); setStatus('正文已加载');
+      setView('create'); setStatus('正文加载完成');
     } catch (err: any) { alert("读取失败"); }
     finally { setIsPublishing(false); }
   };
 
   const handlePublish = async () => {
-    if (!token || !title || !content) return alert("请填写完整信息");
-    setIsPublishing(true); setStatus('正在同步...');
+    if (!token || !title || !content) return alert("请检查信息是否填写完整");
+    setIsPublishing(true); setStatus('正在同步 GitHub...');
     try {
       const octokit = new Octokit({ auth: token });
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}_${Date.now()}.txt`;
+
+      // 1. 获取正文文件 SHA
+      let currentSha = editingFileSha || undefined;
+      if (editingFileName) {
+        try {
+          const { data: latestF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${editingFileName}`, request: { cache: 'no-store' } });
+          // @ts-ignore
+          currentSha = latestF.sha;
+        } catch (e) {}
+      }
+
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-        message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
-        sha: editingFileSha || undefined, branch: BRANCH
+        message: `Archive Update`, content: btoa(unescape(encodeURIComponent(content))),
+        sha: currentSha, branch: BRANCH
       });
+
+      // 2. 获取 index.json 并更新
       const { data: idxF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } });
       // @ts-ignore
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
+
       if (idx === -1) {
         const newS: any = { id: storyId, title, author, date: publishDate, sourceLink };
         if (chapterTitle) newS.chapters = [{ title: chapterTitle, fileName }]; else newS.fileName = fileName;
@@ -108,64 +142,78 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           if (ci !== -1) s.chapters[ci].title = chapterTitle;
         }
       }
-      await octokit.rest.repos.createOrUpdateFileContents({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, // @ts-ignore
-      sha: idxF.sha, message: `Update Index`, content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), branch: BRANCH });
-      setStatus('成功！');
+
+      await octokit.rest.repos.createOrUpdateFileContents({
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
+        // @ts-ignore
+        sha: idxF.sha, message: `Index Update`,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), branch: BRANCH
+      });
+
+      setStatus('发布成功！正在跳转...');
       setTimeout(() => { fetchStories(); setView('list'); setEditingId(null); setEditingFileName(null); setStatus(''); setIsPublishing(false); }, 1500);
     } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
   };
 
   return (
     <div className="min-h-screen p-6 max-w-4xl mx-auto font-sans text-sm text-slate-800 dark:text-slate-200">
-      <header className="flex justify-between items-center mb-10 pb-4 border-b dark:border-white/10">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-black dark:hover:text-white font-bold uppercase tracking-widest transition-colors"><ChevronLeft size={16}/> EXIT</button>
-        <div className="flex gap-4 items-center">
-            <div className="flex items-center gap-2 bg-slate-500/5 px-3 py-1.5 rounded-full border border-black/10"><Key size={14} className="opacity-40"/><input type="password" value={token} onChange={e => { setToken(e.target.value); localStorage.setItem('gh_token', e.target.value); }} className="bg-transparent w-32 focus:w-48 transition-all outline-none text-[10px]" placeholder="GitHub Token" /></div>
-            <button onClick={() => setView(view === 'create' ? 'list' : 'create')} className="bg-slate-900 text-white dark:bg-white dark:text-black px-6 py-2 rounded-full font-black uppercase text-xs hover:scale-105 shadow-xl transition-all">{view === 'create' ? <><List size={14} className="mr-1 inline"/> Manage</> : <><Edit3 size={14} className="mr-1 inline"/> New Story</>}</button>
+      <header className="flex justify-between items-center mb-10 pb-4 border-b dark:border-white/10 gap-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-black dark:hover:text-white font-bold uppercase tracking-widest transition-colors shrink-0"><ChevronLeft size={16}/> EXIT</button>
+        <div className="flex gap-4 items-center ml-auto">
+            <div className="flex items-center gap-2 bg-slate-500/5 px-3 py-1.5 rounded-full border border-black/10">
+               <Key size={14} className="opacity-40"/>
+               <input type="password" value={token} onChange={e => { setToken(e.target.value); localStorage.setItem('gh_token', e.target.value); }} className="bg-transparent w-32 focus:w-48 transition-all outline-none text-[10px]" placeholder="GitHub Token" />
+            </div>
+            <button onClick={() => setView(view === 'create' ? 'list' : 'create')} className="bg-slate-900 text-white dark:bg-white dark:text-black px-6 py-2 rounded-full font-black uppercase text-xs hover:scale-105 transition-all">
+                {view === 'create' ? <><List size={14} className="mr-1 inline"/> Manage</> : <><Edit3 size={14} className="mr-1 inline"/> New Story</>}
+            </button>
         </div>
       </header>
 
       {view === 'list' ? (
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
-            <h2 className="text-3xl font-black mb-8 font-serif italic tracking-tight">Archive Management</h2>
+            <div className="flex justify-between items-center mb-6"><h2 className="text-3xl font-black font-serif italic">Archive Management</h2><button onClick={fetchStories} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all"><RefreshCw size={18} /></button></div>
             {isListLoading ? <div className="py-20 text-center opacity-20 uppercase tracking-[0.3em]">Loading...</div> : stories.map(s => (
                 <div key={s.id} className="p-6 border dark:border-white/10 rounded-2xl bg-white dark:bg-black/20 shadow-sm mb-4">
                     <div className="flex justify-between items-start mb-4">
-                        <div><span className="font-bold text-xl block leading-tight">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
-                        <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase transition-all shadow-lg"><PlusCircle size={14}/> 续传/分P</button>
+                        <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
+                        <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase transition-all hover:bg-blue-700 shadow-lg shadow-blue-500/20"><PlusCircle size={14}/> 续传/分P</button>
                     </div>
                     <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-4">
                         {s.chapters ? s.chapters.map((c: any, i: number) => (
-                            <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs hover:text-blue-600 transition-all">{c.title}</button>
-                        )) : <button onClick={() => handleEdit(s, s.fileName)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs italic text-blue-500">单页正文 (点击修改)</button>}
+                            <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs hover:text-blue-600 border border-transparent transition-all">{c.title}</button>
+                        )) : <button onClick={() => handleEdit(s, s.fileName)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs italic text-blue-500">单页正文 (点击编辑)</button>}
                     </div>
                 </div>
             ))}
         </div>
       ) : (
         <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-black font-serif italic">{editingId ? 'Edit Content' : 'Post New Story'}</h2>
+            <div className="flex justify-between items-center"><h2 className="text-2xl font-black font-serif italic">{editingId ? 'Edit Content' : 'Post New Story'}</h2><button onClick={handleUndo} disabled={history.length === 0} className="px-4 py-2 bg-slate-200 dark:bg-white/10 rounded-xl text-xs font-black disabled:opacity-30 flex items-center gap-1"><Undo2 size={14}/> 撤回操作</button></div>
             <div className="bg-white dark:bg-black/20 p-8 rounded-3xl border dark:border-white/10 space-y-6 shadow-2xl">
-               <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-2xl font-black focus:border-blue-500 outline-none transition-all" placeholder="总标题..." />
+               <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-2xl font-black focus:border-blue-500 outline-none transition-all font-serif" placeholder="总标题" />
                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Author</label><input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Date</label><input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Chapter</label><input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 font-bold" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Source</label><input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase">Author</label><input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none font-bold" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase">Date</label><input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none font-bold" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-black text-blue-500 uppercase font-bold">Chapter Title</label><input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 font-black font-serif" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-black opacity-30 uppercase">Original Link</label><input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs" /></div>
                </div>
-               <div className="space-y-3">
+               <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
                     {[ 
-                      ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], 
-                      ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], 
-                      ['---','',Minus], ['[bvid:',']',Video], ['[ytid:',']',Youtube] // 🌟 新增 YouTube 按钮
-                    ].map(([ot,ct,Icon]:any, i) => (
-                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ot.includes('ytid') ? 'text-red-500' : ''}`}><Icon size={16}/></button>
+                      ['**','**',Bold,'加粗'], ['*','*',Italic,'斜体'], ['[box]','[/box]',Square,'方框'], ['[quote]','[/quote]',Quote,'引用'], 
+                      ['[bubble:L]','[/bubble]',MessageSquare,'左气泡'], ['[bubble:R]','[/bubble]',MessageSquare,'右气泡'], 
+                      ['---','',Minus,'分割线'], ['[bvid:',']',Video,'B站'], ['[ytid:',']',Youtube,'Youtube'] 
+                    ].map(([ot,ct,Icon,tip]:any, i) => (
+                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ot.includes('ytid') ? 'text-red-500' : ''}`} title={tip}><Icon size={16}/></button>
                     ))}
                   </div>
-                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" />
+                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴你的翻译内容..." />
                </div>
-               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 active:scale-95 transition-all disabled:bg-slate-400">{isPublishing ? 'PUBLISHING...' : 'POST TO ARCHIVE'}</button>
+               {status && <div className="text-xs font-bold text-blue-500 animate-pulse">{status}</div>}
+               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 active:scale-95 transition-all disabled:bg-slate-400">
+                 {isPublishing ? 'PUBLISHING...' : 'POST TO ARCHIVE'}
+               </button>
             </div>
         </div>
       )}
