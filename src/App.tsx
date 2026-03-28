@@ -40,7 +40,7 @@ export default function App() {
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // 自动获取前三条
+  // 自动获取前三条最新更新
   const latestUpdates = stories.slice(0, 3);
 
   // 认证通过逻辑
@@ -118,9 +118,9 @@ export default function App() {
               ) : (
                 <motion.div key="honest-msg" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full">
                   <Heart className="mx-auto mb-6 opacity-20 text-red-500" size={40} />
-                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white">期待下次相遇</h2>
-                  <p className="text-xs leading-relaxed opacity-60 tracking-widest text-center text-center">喵<br/>喵喵喵</p>
-                  <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40">返回</button>
+                  <h2 className="text-lg font-bold tracking-[0.2em] mb-4 text-[#333] dark:text-white font-serif italic">期待下次相遇</h2>
+                  <p className="text-xs leading-relaxed opacity-60 tracking-widest text-center">喵<br/>喵喵喵</p>
+                  <button onClick={() => setIsHonest(false)} className="mt-8 text-[10px] underline opacity-40 uppercase tracking-widest font-sans font-bold">Return</button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -128,35 +128,48 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen text-[#333] dark:text-white">
             
-            {/* 🌟 极简原生风更新提示框 */}
+            {/* 🌟 极简原生风更新提示框 (支持显示章节名) */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/20 dark:bg-black/40 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/30 dark:bg-black/60 backdrop-blur-sm">
                   <motion.div 
                     initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
                     className="w-full max-w-[440px] flex flex-col items-center"
                   >
                     <div className="bg-[#F5F5F5] dark:bg-[#121212] border border-black/10 dark:border-white/10 p-10 rounded-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] w-full text-center">
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-10">最近更新</h4>
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-10">Latest Updates</h4>
                       <div className="space-y-8">
-                        {latestUpdates.map(story => (
-                          <div key={story.id}>
-                            <p className="text-lg font-serif font-black leading-tight tracking-tight text-black dark:text-white">
-                              {story.title}
-                            </p>
-                            <p className="text-[9px] uppercase tracking-[0.2em] opacity-30 mt-2 font-sans font-bold">
-                              {story.author} // {story.date.replace(/-/g, '.')}
-                            </p>
-                          </div>
-                        ))}
+                        {latestUpdates.map(story => {
+                          // 核心逻辑：获取该文章的最新章节名
+                          const latestChapter = story.chapters && story.chapters.length > 0 
+                            ? story.chapters[story.chapters.length - 1].title 
+                            : null;
+                          
+                          return (
+                            <div key={story.id}>
+                              <p className="text-lg font-serif font-black leading-tight tracking-tight text-black dark:text-white">
+                                {story.title}
+                              </p>
+                              {/* 如果有章节，则显示最新章节名 */}
+                              {latestChapter && (
+                                <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-400 mt-1">
+                                  — {latestChapter}
+                                </p>
+                              )}
+                              <p className="text-[9px] uppercase tracking-[0.2em] opacity-30 mt-3 font-sans font-bold">
+                                {story.author} // {story.date.replace(/-/g, '.')}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    {/* 灰色极简圆钮 */}
+                    {/* 灰色极简圆钮 (位于框下方) */}
                     <button 
                       onClick={() => setShowUpdateNotice(false)}
-                      className="mt-8 w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-all"
+                      className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-400 flex items-center justify-center transition-all shadow-lg border border-white/10"
                     >
-                      <X size={20} />
+                      <X size={24} />
                     </button>
                   </motion.div>
                 </div>
@@ -187,31 +200,31 @@ export default function App() {
               <AnimatePresence mode="wait">
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <header className="text-center py-12"><h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1></header>
+                    <header className="text-center py-12"><h1 className="text-3xl font-bold tracking-[0.2em] mb-4 text-black dark:text-white">花汪档案馆</h1></header>
                     <section className="max-w-[700px] mx-auto">
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
-                          <div className="flex items-baseline gap-3"><h3 className="text-xl font-medium mb-1">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans"><span>{s.author}</span><span>{s.date?.replace(/-/g, '.')}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
+                          <div className="flex items-baseline gap-3"><h3 className="text-xl font-medium mb-1 font-serif italic font-bold">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-40 uppercase tracking-widest font-sans font-bold text-center"><span>{s.author}</span><span>{s.date?.replace(/-/g, '.')}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
                         </motion.button>
                       ))}
                     </section>
                     {totalPages > 1 && (
                       <div className="flex justify-center items-center gap-12 mt-20 py-10 border-t border-dashed border-black/5 dark:border-white/5">
-                        <button onClick={() => { setCurrentPage(p => Math.max(p - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === 1} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>← PREV</button>
-                        <span className="text-[10px] opacity-20 tracking-[0.3em] uppercase">{currentPage} / {totalPages}</span>
-                        <button onClick={() => { setCurrentPage(p => Math.min(p + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === totalPages} className={`text-[10px] font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>NEXT →</button>
+                        <button onClick={() => { setCurrentPage(p => Math.max(p - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === 1} className={`text-[10px] font-sans font-bold tracking-[0.4em] uppercase transition-all ${currentPage === 1 ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>← PREV</button>
+                        <span className="text-[10px] font-sans font-bold opacity-20 tracking-[0.3em] uppercase">{currentPage} / {totalPages}</span>
+                        <button onClick={() => { setCurrentPage(p => Math.min(p + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={currentPage === totalPages} className={`text-[10px] font-sans font-bold tracking-[0.4em] uppercase transition-all ${currentPage === totalPages ? 'opacity-10' : 'opacity-40 hover:opacity-100 hover:tracking-[0.6em]'}`}>NEXT →</button>
                       </div>
                     )}
                   </motion.div>
                 ) : showChapterList ? (
                   <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
-                    <div className="mb-12 text-center text-center"><h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2><p className="text-xs opacity-40 tracking-widest uppercase font-sans">Directory / 目录</p></div>
+                    <div className="mb-12 text-center"><h2 className="text-2xl font-bold font-serif italic text-black dark:text-white">{currentStory.title}</h2><p className="text-xs opacity-40 tracking-widest uppercase font-sans font-bold">Directory / 目录</p></div>
                     <div className="grid gap-4">
                       {currentStory.chapters?.map((chapter, idx) => (
-                        <button key={idx} onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)} className={`p-6 border rounded-xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
-                          <div><span className="text-[10px] opacity-30 block mb-1 font-sans font-bold">CHAPTER {idx + 1}</span><span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span></div>
-                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right">{chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}</div>
+                        <button key={idx} onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)} className={`p-6 border rounded-2xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
+                          <div><span className="text-[10px] opacity-30 block mb-1 font-sans font-bold uppercase tracking-widest">Chapter {idx + 1}</span><span className="text-lg group-hover:pl-2 transition-all duration-300 font-serif font-bold italic text-black dark:text-white">{chapter.title}</span></div>
+                          <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right font-bold text-black dark:text-white">{chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}</div>
                         </button>
                       ))}
                     </div>
@@ -219,7 +232,7 @@ export default function App() {
                 ) : (
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
                     <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans">
-                      <h2 className="text-4xl font-serif font-light mb-8 leading-tight">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-50 mt-4 font-serif">— {currentStory.currentChapterTitle}</span>)}</h2>
+                      <h2 className="text-4xl font-serif font-black italic mb-8 leading-tight text-black dark:text-white">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-50 mt-4 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-40 space-y-1 font-bold"><p>作者: {currentStory.author}</p><p>时间: {currentStory.date?.replace(/-/g, '.')}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
