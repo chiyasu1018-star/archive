@@ -137,7 +137,7 @@ export default function App() {
                     className="w-full max-w-[440px] flex flex-col items-center"
                   >
                     <div className="bg-[#F5F5F5] dark:bg-[#121212] border border-black/10 dark:border-white/10 p-10 rounded-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] w-full text-center">
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-10">Latest Updates</h4>
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-10">最近更新</h4>
                       <div className="space-y-8">
                         {latestUpdates.map(story => {
                           // 核心逻辑：获取该文章的最新章节名
