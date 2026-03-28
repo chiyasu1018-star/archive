@@ -23,7 +23,7 @@ export default function App() {
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
   
-  // --- 新增：控制更新提示框状态 ---
+  // 控制更新提示框
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
 
   const ITEMS_PER_PAGE = 8; 
@@ -40,10 +40,10 @@ export default function App() {
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // --- 新增：自动获取前三条更新 ---
+  // 自动获取前三条
   const latestUpdates = stories.slice(0, 3);
 
-  // --- 新增：处理确认成年并弹出更新框 ---
+  // 认证通过逻辑
   const handleConfirmAge = () => {
     setHasConfirmedAge(true);
     if (stories.length > 0) setShowUpdateNotice(true);
@@ -109,7 +109,7 @@ export default function App() {
                 <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
                   <ShieldAlert className="mx-auto mb-8 opacity-20" size={48} />
                   <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase">Content Notice</h1>
-                  <p className="mb-12 text-xs leading-relaxed opacity-60 tracking-widest text-center text-center">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
+                  <p className="mb-12 text-xs leading-relaxed opacity-60 tracking-widest text-center">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
                     <button onClick={handleConfirmAge} className={`w-48 py-3 border rounded-full text-[10px] font-bold tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/20 hover:bg-white hover:text-black' : 'border-black/20 hover:bg-black hover:text-white'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-30 hover:opacity-100 transition-opacity">LEAVE / 离开</button>
@@ -128,38 +128,35 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen text-[#333] dark:text-white">
             
-            {/* 🌟 新增：最新更新提示框 (仅主页显示，米色加粗) */}
+            {/* 🌟 极简原生风更新提示框 */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/20 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/20 dark:bg-black/40 backdrop-blur-sm">
                   <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }} 
-                    animate={{ scale: 1, opacity: 1 }} 
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="w-full max-w-[500px] flex flex-col items-center"
+                    initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                    className="w-full max-w-[440px] flex flex-col items-center"
                   >
-                    {/* 米色提示框 */}
-                    <div className="bg-[#FDF5E6] dark:bg-[#1a1917] border border-amber-200/50 dark:border-white/5 p-10 rounded-2xl shadow-2xl w-full text-center">
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-8 text-[#333] dark:text-white">Latest Updates</h4>
-                      <div className="space-y-6">
+                    <div className="bg-[#F5F5F5] dark:bg-[#121212] border border-black/10 dark:border-white/10 p-10 rounded-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] w-full text-center">
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-bold opacity-30 mb-10">Latest Updates</h4>
+                      <div className="space-y-8">
                         {latestUpdates.map(story => (
                           <div key={story.id}>
-                            <p className="text-lg font-serif font-black text-[#111] dark:text-[#eee] leading-tight tracking-tight">
+                            <p className="text-lg font-serif font-black leading-tight tracking-tight text-black dark:text-white">
                               {story.title}
                             </p>
-                            <p className="text-[9px] uppercase tracking-widest opacity-30 mt-2 font-sans font-bold">
-                              {story.date.replace(/-/g, '.')} / {story.author}
+                            <p className="text-[9px] uppercase tracking-[0.2em] opacity-30 mt-2 font-sans font-bold">
+                              {story.author} // {story.date.replace(/-/g, '.')}
                             </p>
                           </div>
                         ))}
                       </div>
                     </div>
-                    {/* 灰色圆钮 (位于框下方) */}
+                    {/* 灰色极简圆钮 */}
                     <button 
                       onClick={() => setShowUpdateNotice(false)}
-                      className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-400 flex items-center justify-center transition-all shadow-lg backdrop-blur-md border border-white/10"
+                      className="mt-8 w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-all"
                     >
-                      <X size={24} />
+                      <X size={20} />
                     </button>
                   </motion.div>
                 </div>
@@ -172,14 +169,14 @@ export default function App() {
                   <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-bold transition-opacity ${isDarkMode ? 'text-white/60 hover:text-white' : 'opacity-60 hover:opacity-100'}`}>
                     <ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}
                   </button>
-                ) : ( <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30 text-[#333] dark:text-white">HW / ARCHIVE</h1> )}
+                ) : ( <h1 className="text-sm uppercase tracking-widest font-sans font-semibold opacity-30">HW / ARCHIVE</h1> )}
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
                 {currentStory?.content && (
-                  <div className="flex gap-1 ml-2 font-sans font-bold text-[#333] dark:text-white">
+                  <div className="flex gap-1 ml-2 font-sans font-bold">
                     <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
                     <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg">A+</button>
                   </div>
@@ -190,7 +187,7 @@ export default function App() {
               <AnimatePresence mode="wait">
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <header className="text-center py-12 text-[#333] dark:text-white text-center"><h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1></header>
+                    <header className="text-center py-12"><h1 className="text-3xl font-bold tracking-[0.2em] mb-4">花汪档案馆</h1></header>
                     <section className="max-w-[700px] mx-auto">
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
@@ -208,26 +205,26 @@ export default function App() {
                     )}
                   </motion.div>
                 ) : showChapterList ? (
-                  <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12 text-[#333] dark:text-white">
+                  <motion.div key="chapters" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[600px] mx-auto py-12">
                     <div className="mb-12 text-center text-center"><h2 className="text-2xl font-bold mb-2">{currentStory.title}</h2><p className="text-xs opacity-40 tracking-widest uppercase font-sans">Directory / 目录</p></div>
                     <div className="grid gap-4">
                       {currentStory.chapters?.map((chapter, idx) => (
                         <button key={idx} onClick={() => loadFullStory(currentStory, chapter.fileName, chapter.title)} className={`p-6 border rounded-xl text-left transition-all group flex justify-between items-center ${isDarkMode ? 'border-white/10 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'}`}>
-                          <div><span className="text-[10px] opacity-30 block mb-1 font-sans font-bold text-center text-center">CHAPTER {idx + 1}</span><span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span></div>
+                          <div><span className="text-[10px] opacity-30 block mb-1 font-sans font-bold">CHAPTER {idx + 1}</span><span className="text-lg group-hover:pl-2 transition-all duration-300">{chapter.title}</span></div>
                           <div className="text-[10px] opacity-30 font-sans tracking-widest uppercase text-right">{chapter.autoWordCount ? `${chapter.autoWordCount.toLocaleString()} 字` : '...'}</div>
                         </button>
                       ))}
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-[#333] dark:text-white">
+                  <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
                     <header className="mb-16 border-b border-black/5 dark:border-white/5 pb-12 font-sans">
                       <h2 className="text-4xl font-serif font-light mb-8 leading-tight">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-50 mt-4 font-serif">— {currentStory.currentChapterTitle}</span>)}</h2>
-                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-40 space-y-1 font-bold text-center"><p>作者: {currentStory.author}</p><p>时间: {currentStory.date?.replace(/-/g, '.')}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
+                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-40 space-y-1 font-bold"><p>作者: {currentStory.author}</p><p>时间: {currentStory.date?.replace(/-/g, '.')}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-bold tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-[#90a4ae] hover:text-[#b0bec5]' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse">Loading Content...</div>) : (
-                      <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-[#333] dark:text-[#E0E0E0]">
+                      <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif">
                         {(() => {
                           const raw = currentStory.content || '';
                           const cleanRaw = raw.replace(/\r\n/g, '\n');
@@ -267,7 +264,7 @@ export default function App() {
                     )}
                     <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'}`}>
                        <p className={`text-sm font-bold tracking-widest ${isDarkMode ? 'text-white/40' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                       <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:bg-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                       <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/10 hover:bg-white hover:text-black' : 'border-black/10 hover:border-black hover:text-white'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
                     </div>
                   </motion.div>
                 )}
