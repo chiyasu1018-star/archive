@@ -152,7 +152,7 @@ export default function App() {
                     className="w-full max-w-[440px] flex flex-col items-center"
                   >
                     <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">Latest Updates</h4>
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近同步</h4>
                       <div className="space-y-8">
                         {latestUpdates.map(story => {
                           const latestChapter = story.chapters && story.chapters.length > 0 
