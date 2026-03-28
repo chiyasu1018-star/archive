@@ -22,6 +22,8 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
+  
+  // --- 新增：控制更新提示框状态 ---
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
 
   const ITEMS_PER_PAGE = 8; 
@@ -53,8 +55,8 @@ export default function App() {
 
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const latestUpdates = stories.slice(0, 3);
 
+  // --- 新增：处理确认成年并弹出更新框 ---
   const handleConfirmAge = () => {
     setHasConfirmedAge(true);
     if (stories.length > 0) setShowUpdateNotice(true);
@@ -117,11 +119,12 @@ export default function App() {
           <motion.div key="age-gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 text-center">
             <AnimatePresence mode="wait">
               {!isHonest ? (
-                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
+                <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full text-[#333] dark:text-white">
                   <ShieldAlert className="mx-auto mb-8 opacity-20 text-black dark:text-white" size={48} />
                   <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-black dark:text-white">Content Notice</h1>
                   <p className="mb-12 text-xs leading-relaxed tracking-widest text-black/60 dark:text-slate-400">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
+                    {/* 修改：点击这里触发确认并显示弹窗 */}
                     <button onClick={handleConfirmAge} className={`w-48 py-3 border rounded-full text-[10px] font-black tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/40 hover:bg-white hover:text-black bg-white/5' : 'border-black/20 hover:bg-black hover:text-white bg-black/5'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity text-black dark:text-white font-bold">LEAVE / 离开</button>
                   </div>
@@ -139,31 +142,39 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            {/* 🌟 提示框对比度强化 */}
+            {/* 🌟 新增：极简原生风格更新提示框 (全自动识别前三条) */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
                   <motion.div 
-                    initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                    initial={{ scale: 0.95, opacity: 0 }} 
+                    animate={{ scale: 1, opacity: 1 }} 
+                    exit={{ scale: 0.95, opacity: 0 }}
                     className="w-full max-w-[440px] flex flex-col items-center"
                   >
-                    <div className="bg-[#F5F5F5] dark:bg-[#1a1a1a] border border-black/10 dark:border-white/20 p-10 rounded-2xl shadow-2xl w-full text-center">
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-40 dark:opacity-50 mb-10 text-black dark:text-slate-400">Latest Updates</h4>
+                    <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">Latest Updates</h4>
                       <div className="space-y-8">
-                        {latestUpdates.map(story => {
+                        {stories.slice(0, 3).map(story => {
                           const latestChapter = story.chapters && story.chapters.length > 0 
                             ? story.chapters[story.chapters.length - 1].title : null;
                           return (
                             <div key={story.id}>
-                              <p className="text-xl font-serif font-black leading-tight tracking-tight text-black dark:text-white">{story.title}</p>
+                              <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
                               {latestChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {latestChapter}</p>}
-                              <p className="text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black text-black dark:text-slate-400">{story.author} // {story.date.replace(/-/g, '.')}</p>
+                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author} // {story.date.replace(/-/g, '.')}</p>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                    <button onClick={() => setShowUpdateNotice(false)} className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"><X size={24} /></button>
+                    {/* 灰色极简圆钮 (正下方) */}
+                    <button 
+                      onClick={() => setShowUpdateNotice(false)}
+                      className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"
+                    >
+                      <X size={24} />
+                    </button>
                   </motion.div>
                 </div>
               )}
@@ -241,22 +252,22 @@ export default function App() {
                             const trimmedPart = part.trim();
                             if (/\[\s*quote\s*\]/.test(part)) {
                               const inner = part.replace(/\[\s*\/?quote\s*\]/g, '').trim();
-                              return (<blockquote key={idx} className="my-10 pl-5 border-l-4 border-slate-300 dark:border-slate-600 italic text-slate-500 dark:text-slate-400 bg-slate-100/30 dark:bg-white/5 py-6 rounded-r-xl">{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</blockquote>);
+                              return (<blockquote key={idx} className={`my-10 pl-5 border-l-4 italic py-6 rounded-r-xl ${isDarkMode ? 'border-slate-600 bg-white/5 text-slate-400' : 'border-slate-300 bg-slate-100/30 text-slate-500'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</blockquote>);
                             }
                             if (/\[\s*box\s*\]/.test(part)) {
                               const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
-                              return (<div key={idx} className="my-10 p-8 bg-slate-100/60 dark:bg-zinc-900 border border-slate-200/50 dark:border-white/10 rounded-2xl text-sm leading-relaxed shadow-sm">{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
+                              return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
                             }
                             if (/\[\s*bubble:/.test(part)) {
                               const isRight = part.includes(':R');
                               const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
-                              return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-4`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-100'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-2" />)}</div></div>);
+                              return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-4`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-2" />)}</div></div>);
                             }
                             if (/\[\s*bvid:/.test(part)) {
                               const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
                               return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
                             }
-                            if (trimmedPart === '---') return <hr key={idx} className="my-16 border-t border-black/10 dark:border-white/20" />;
+                            if (trimmedPart === '---') return <hr key={idx} className={`my-16 border-t ${isDarkMode ? 'border-white/10' : 'border-black/10'}`} />;
                             return part.split('\n').map((line, lIdx) => {
                               if (line === '') return <div key={lIdx} className="h-8" />;
                               return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
