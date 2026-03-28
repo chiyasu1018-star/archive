@@ -20,7 +20,7 @@ interface Story {
   wordCount?: number; 
   content?: string; 
   currentChapterTitle?: string;
-  // 新增：用于存储物理时间
+  // 物理抓取字段
   lastModified?: number;
   displayDate?: string;
 }
@@ -55,55 +55,64 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // --- 🚀 核心逻辑：抓取物理文件时间并重新排序 ---
+  // --- 🚀 核心逻辑：精准物理抓取 + 智能排序 ---
   useEffect(() => {
-    const fetchAndSortByFileTime = async () => {
+    const fetchStories = async () => {
       try {
         const res = await fetch(`${API_BASE}index.json?v=${Date.now()}`);
         const data: Story[] = await res.json();
 
-        // 并发获取每个故事对应文件的 Last-Modified 头部信息
         const enrichedStories = await Promise.all(
           data.map(async (story) => {
             try {
-              // 优先抓取最后一章的文件时间，若无章节则抓取主文件
+              // 选取最新的文件进行探测
               const targetFile = story.chapters && story.chapters.length > 0 
                 ? story.chapters[story.chapters.length - 1].fileName 
                 : story.fileName;
 
-              if (!targetFile) return { ...story, lastModified: 0, displayDate: story.date };
-
-              // 使用 HEAD 请求只获取文件头，不下载内容，节省流量和时间
-              const fileRes = await fetch(`${API_BASE}${targetFile}`, { method: 'HEAD' });
-              const lastModifiedStr = fileRes.headers.get('Last-Modified');
-              
-              if (lastModifiedStr) {
-                const dateObj = new Date(lastModifiedStr);
-                return { 
-                  ...story, 
-                  lastModified: dateObj.getTime(),
-                  displayDate: dateObj.toLocaleDateString('zh-CN').replace(/\//g, '.')
-                };
+              if (targetFile) {
+                // HEAD 请求探测物理时间
+                const fileRes = await fetch(`${API_BASE}${targetFile}`, { 
+                  method: 'HEAD',
+                  cache: 'no-cache' // 强制不走缓存
+                });
+                const lastModifiedStr = fileRes.headers.get('Last-Modified');
+                
+                if (lastModifiedStr) {
+                  const dateObj = new Date(lastModifiedStr);
+                  return { 
+                    ...story, 
+                    lastModified: dateObj.getTime(),
+                    displayDate: dateObj.toLocaleDateString('zh-CN').replace(/\//g, '.') 
+                  };
+                }
               }
-            } catch (e) {
-              console.warn(`无法获取文件时间: ${story.title}`);
-            }
-            return { ...story, lastModified: 0, displayDate: story.date.replace(/-/g, '.') };
+            } catch (e) {}
+            // 兜底：抓不到物理时间则用内置 date
+            return { 
+              ...story, 
+              lastModified: new Date(story.date).getTime(), 
+              displayDate: story.date.replace(/-/g, '.') 
+            };
           })
         );
 
-        // 按物理修改时间戳降序排列
-        const sorted = enrichedStories.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
-        
+        // 排序逻辑：物理时间优先。如果物理时间完全一致（部署覆盖），则按内置日期字符串排序
+        const sorted = enrichedStories.sort((a, b) => {
+          if (b.lastModified !== a.lastModified) {
+            return (b.lastModified || 0) - (a.lastModified || 0);
+          }
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+
         setStories(sorted);
         setTimeout(() => setLoading(false), 800);
       } catch (err) {
-        console.error("初始化失败", err);
         setLoading(false);
       }
     };
 
-    fetchAndSortByFileTime();
+    fetchStories();
   }, []);
 
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
@@ -193,7 +202,7 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            {/* 🌟 修改后的更新提示框：展示物理时间最晚的三条记录 */}
+            {/* 🌟 精准更新提示框 */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
@@ -213,7 +222,6 @@ export default function App() {
                             <div key={story.id}>
                               <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
                               {latestChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {latestChapter}</p>}
-                              {/* 这里使用了 displayDate，即物理抓取的修改时间 */}
                               <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author} // {story.displayDate}</p>
                             </div>
                           );
@@ -260,12 +268,7 @@ export default function App() {
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                           <div className="flex items-baseline gap-3"><h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black">
-                            <span>{s.author}</span>
-                            {/* 使用抓取的显示日期 */}
-                            <span>{s.displayDate}</span>
-                            {s.chapters && <span>{s.chapters.length} 章节</span>}
-                          </div>
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span><span>{s.displayDate}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
                         </motion.button>
                       ))}
                     </section>
@@ -293,11 +296,7 @@ export default function App() {
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
                     <header className="mb-16 border-b border-black/5 dark:border-white/10 pb-12 font-sans">
                       <h2 className="text-4xl font-serif font-black italic mb-8 leading-tight text-black dark:text-white">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-60 mt-4 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
-                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black text-black dark:text-slate-300">
-                        <p>作者: {currentStory.author}</p>
-                        <p>时间: {currentStory.displayDate}</p>
-                        <p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p>
-                      </div>
+                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black text-black dark:text-slate-300"><p>作者: {currentStory.author}</p><p>最后修改: {currentStory.displayDate}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-black dark:text-white">Loading Content...</div>) : (
