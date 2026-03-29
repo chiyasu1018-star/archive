@@ -273,7 +273,7 @@ export default function App() {
                         {(() => {
                           const raw = currentStory.content || '';
                           const cleanRaw = raw.replace(/\r\n/g, '\n');
-                          const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|---)/g;
+                          const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|\[\s*youtube:[a-zA-Z0-9_-]+\s*\]|---)/g;
                           const parts = cleanRaw.split(blockRegex);
                           return parts.map((part, idx) => {
                             if (!part) return null;
@@ -287,37 +287,42 @@ export default function App() {
                               return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
                             }
                             
-                           // --- 🌟 气泡间距终极修复版 ---
-if (/\[\s*bubble:/.test(part)) {
-  const isRight = part.includes(':R');
-  const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
-  return (
-    <div 
-      key={idx} 
-      className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}
-    >
-      {/* 
-         -my-2.5: 使用负外边距强制抵消外层行高和换行符带来的间隙。
-         leading-none: 彻底切断 1.9 倍行高的干扰。
-      */}
-      <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal my-1 ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
-        {/* 
-           leading-normal: 保证气泡内部文字行间距正常。
-           my-1: 这里才是真正控制两个气泡视觉距离的地方，1 代表极窄。
-        */}
-        {inner.split('\n').map((l, i) => l.trim() ? 
-          <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> 
-          : <div key={i} className="h-1" />
-        )}
-      </div>
-    </div>
-  );
-}
+                            if (/\[\s*bubble:/.test(part)) {
+                              const isRight = part.includes(':R');
+                              const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
+                              return (
+                                <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}>
+                                  <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal my-1 ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
+                                    {inner.split('\n').map((l, i) => l.trim() ? 
+                                      <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> 
+                                      : <div key={i} className="h-1" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
 
                             if (/\[\s*bvid:/.test(part)) {
                               const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
                               return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
                             }
+
+                            // --- ⭐ YouTube 渲染逻辑部分 ---
+                            if (/\[\s*youtube:/.test(part)) {
+                              const ytid = part.match(/youtube:\s*([a-zA-Z0-9_-]+)/)?.[1];
+                              return (
+                                <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
+                                  <iframe 
+                                    src={`https://www.youtube.com/embed/${ytid}`} 
+                                    className="w-full h-full border-none" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen 
+                                    loading="lazy" 
+                                  />
+                                </div>
+                              );
+                            }
+
                             if (trimmedPart === '---') return <hr key={idx} className={`my-16 border-t ${isDarkMode ? 'border-white/10' : 'border-black/10'}`} />;
                             return part.split('\n').map((line, lIdx) => {
                               if (line === '') return <div key={lIdx} className="h-8" />;
