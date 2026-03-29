@@ -269,68 +269,96 @@ export default function App() {
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-black dark:text-white">Loading Content...</div>) : (
-                      <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-black dark:text-slate-200">
-                        {(() => {
-                          const raw = currentStory.content || '';
-                          const cleanRaw = raw.replace(/\r\n/g, '\n');
-                          const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|\[\s*youtube:[a-zA-Z0-9_-]+\s*\]|---)/g;
-                          const parts = cleanRaw.split(blockRegex);
-                          return parts.map((part, idx) => {
-                            if (!part) return null;
-                            const trimmedPart = part.trim();
-                            if (/\[\s*quote\s*\]/.test(part)) {
-                              const inner = part.replace(/\[\s*\/?quote\s*\]/g, '').trim();
-                              return (<blockquote key={idx} className={`my-8 pl-5 border-l-4 italic py-6 rounded-r-xl ${isDarkMode ? 'border-slate-600 bg-white/5 text-slate-400' : 'border-slate-300 bg-slate-100/30 text-slate-500'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</blockquote>);
-                            }
-                            if (/\[\s*box\s*\]/.test(part)) {
-                              const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
-                              return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
-                            }
-                            
-                            if (/\[\s*bubble:/.test(part)) {
-                              const isRight = part.includes(':R');
-                              const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
-                              return (
-                                <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}>
-                                  <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal my-1 ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
-                                    {inner.split('\n').map((l, i) => l.trim() ? 
-                                      <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> 
-                                      : <div key={i} className="h-1" />
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            }
+                     <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-black dark:text-slate-200">
+  {(() => {
+    const raw = currentStory.content || '';
+    const cleanRaw = raw.replace(/\r\n/g, '\n');
+    
+    // 1. 核心正则：确保捕获所有块标签
+    const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|\[\s*youtube:[a-zA-Z0-9_-]+\s*\]|---)/g;
+    
+    // 2. 将全文拆分为“块”和“纯文本”的数组
+    const parts = cleanRaw.split(blockRegex);
 
-                            if (/\[\s*bvid:/.test(part)) {
-                              const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
-                              return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
-                            }
+    return parts.map((part, idx) => {
+      if (!part || part.trim() === '') return null; // 过滤掉由于拆分产生的空字符串
+      
+      const trimmedPart = part.trim();
 
-                            // --- ⭐ YouTube 渲染逻辑部分 ---
-                            if (/\[\s*youtube:/.test(part)) {
-                              const ytid = part.match(/youtube:\s*([a-zA-Z0-9_-]+)/)?.[1];
-                              return (
-                                <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
-                                  <iframe 
-                                    src={`https://www.youtube.com/embed/${ytid}`} 
-                                    className="w-full h-full border-none" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowFullScreen 
-                                    loading="lazy" 
-                                  />
-                                </div>
-                              );
-                            }
+      // --- A. 引用块渲染 ---
+      if (/\[\s*quote\s*\]/.test(part)) {
+        const inner = part.replace(/\[\s*\/?quote\s*\]/g, '').trim();
+        return (
+          <blockquote key={idx} className={`my-10 pl-5 border-l-4 italic py-6 rounded-r-xl ${isDarkMode ? 'border-slate-600 bg-white/5 text-slate-400' : 'border-slate-300 bg-slate-100/30 text-slate-500'}`}>
+            {inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}
+          </blockquote>
+        );
+      }
 
-                            if (trimmedPart === '---') return <hr key={idx} className={`my-16 border-t ${isDarkMode ? 'border-white/10' : 'border-black/10'}`} />;
-                            return part.split('\n').map((line, lIdx) => {
-                              if (line === '') return <div key={lIdx} className="h-8" />;
-                              return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
-                            });
-                          });
-                        })()}
-                      </article>
+      // --- B. 方框块渲染 ---
+      else if (/\[\s*box\s*\]/.test(part)) {
+        const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
+        return (
+          <div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>
+            {inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}
+          </div>
+        );
+      }
+
+      // --- C. 对话气泡渲染 (保持间距优化) ---
+      else if (/\[\s*bubble:/.test(part)) {
+        const isRight = part.includes(':R');
+        const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
+        return (
+          <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}>
+            <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal my-1 ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
+              {inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-1" />)}
+            </div>
+          </div>
+        );
+      }
+
+      // --- D. BiliBili 视频渲染 ---
+      else if (/\[\s*bvid:/.test(part)) {
+        const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
+        return (
+          <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
+            <iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" />
+          </div>
+        );
+      }
+
+      // --- E. YouTube 视频渲染 (精准位置修复) ---
+      else if (/\[\s*youtube:/.test(part)) {
+        const ytid = part.match(/youtube:\s*([a-zA-Z0-9_-]+)/)?.[1];
+        return (
+          <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
+            <iframe 
+              src={`https://www.youtube.com/embed/${ytid}`} 
+              className="w-full h-full border-none" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen 
+              loading="lazy" 
+            />
+          </div>
+        );
+      }
+
+      // --- F. 分割线渲染 ---
+      else if (trimmedPart === '---') {
+        return <hr key={idx} className={`my-16 border-t ${isDarkMode ? 'border-white/10' : 'border-black/10'}`} />;
+      }
+
+      // --- G. 纯文本渲染 (Fallback) ---
+      else {
+        return part.split('\n').map((line, lIdx) => {
+          if (line.trim() === '') return <div key={lIdx} className="h-6" />; // 稍微缩小空行高度
+          return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
+        });
+      }
+    });
+  })()}
+</article>
                     )}
                     <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/20' : 'border-black/10'}`}>
                        <p className={`text-sm font-black tracking-widest ${isDarkMode ? 'text-white/60' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
