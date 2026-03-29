@@ -9,20 +9,7 @@ import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } fr
 import Admin from './Admin';
 
 interface Chapter { title: string; fileName: string; autoWordCount?: number; }
-interface Story { 
-  id: string; 
-  title: string; 
-  author: string; 
-  date: string; 
-  fileName?: string; 
-  chapters?: Chapter[]; 
-  sourceLink: string; 
-  wordCount?: number; 
-  content?: string; 
-  currentChapterTitle?: string;
-  // 用于物理排序，不显示在前端界面
-  physicsTime?: number; 
-}
+interface Story { id: string; title: string; author: string; date: string; fileName?: string; chapters?: Chapter[]; sourceLink: string; wordCount?: number; content?: string; currentChapterTitle?: string; }
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -35,73 +22,41 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
+  
+  // --- 新增：控制更新提示框状态 ---
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
 
   const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
   const API_BASE = '/stories/';
 
-  // --- 🌟 系统深色模式适配 ---
+  // --- 🌟 适配系统深色模式 ---
   useEffect(() => {
+    // 检查本地缓存或系统偏好
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       setIsDarkMode(true);
     }
   }, []);
 
+  // 监听主题变化并保存到本地
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // --- 🚀 核心修改：物理抓取 + 智能排序 ---
   useEffect(() => {
-    const initArchive = async () => {
-      try {
-        const res = await fetch(`${API_BASE}index.json?v=${Date.now()}`);
-        const data: Story[] = await res.json();
-
-        // 并发探测每个故事的物理文件时间
-        const updatedStories = await Promise.all(
-          data.map(async (story) => {
-            try {
-              const targetFile = story.chapters && story.chapters.length > 0 
-                ? story.chapters[story.chapters.length - 1].fileName 
-                : story.fileName;
-
-              if (targetFile) {
-                // 只读 Headers，不下载全文，速度极快
-                const fileRes = await fetch(`${API_BASE}${targetFile}`, { 
-                  method: 'HEAD',
-                  cache: 'no-cache' 
-                });
-                const lastModified = fileRes.headers.get('Last-Modified');
-                if (lastModified) {
-                  return { ...story, physicsTime: new Date(lastModified).getTime() };
-                }
-              }
-            } catch (e) {}
-            // 如果抓不到物理时间，用内置日期转换成时间戳兜底排序
-            return { ...story, physicsTime: new Date(story.date).getTime() };
-          })
-        );
-
-        // 核心：根据物理修改时间降序排列（最新修改的永远在第一位）
-        const sorted = updatedStories.sort((a, b) => (b.physicsTime || 0) - (a.physicsTime || 0));
-
-        setStories(sorted);
-        setTimeout(() => setLoading(false), 800);
-      } catch (err) {
-        setLoading(false);
-      }
-    };
-
-    initArchive();
+    fetch(`${API_BASE}index.json?v=${Date.now()}`)
+      .then(res => res.json())
+      .then(data => { setStories(data); setTimeout(() => setLoading(false), 800); })
+      .catch(() => setLoading(false));
   }, []);
 
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+  // --- 新增：处理确认成年并弹出更新框 ---
   const handleConfirmAge = () => {
     setHasConfirmedAge(true);
     if (stories.length > 0) setShowUpdateNotice(true);
@@ -169,6 +124,7 @@ export default function App() {
                   <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-black dark:text-white">Content Notice</h1>
                   <p className="mb-12 text-xs leading-relaxed tracking-widest text-black/60 dark:text-slate-400">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
+                    {/* 修改：点击这里触发确认并显示弹窗 */}
                     <button onClick={handleConfirmAge} className={`w-48 py-3 border rounded-full text-[10px] font-black tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/40 hover:bg-white hover:text-black bg-white/5' : 'border-black/20 hover:bg-black hover:text-white bg-black/5'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity text-black dark:text-white font-bold">LEAVE / 离开</button>
                   </div>
@@ -186,7 +142,7 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            {/* 🌟 更新提示框：这里展示物理时间最近的三条 */}
+            {/* 🌟 新增：极简原生风格更新提示框 (全自动识别前三条) */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
@@ -197,7 +153,7 @@ export default function App() {
                     className="w-full max-w-[440px] flex flex-col items-center"
                   >
                     <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近上传</h4>
+                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近更新</h4>
                       <div className="space-y-8">
                         {stories.slice(0, 3).map(story => {
                           const latestChapter = story.chapters && story.chapters.length > 0 
@@ -212,7 +168,13 @@ export default function App() {
                         })}
                       </div>
                     </div>
-                    <button onClick={() => setShowUpdateNotice(false)} className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"><X size={24} /></button>
+                    {/* 灰色极简圆钮 (正下方) */}
+                    <button 
+                      onClick={() => setShowUpdateNotice(false)}
+                      className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"
+                    >
+                      <X size={24} />
+                    </button>
                   </motion.div>
                 </div>
               )}
@@ -221,11 +183,15 @@ export default function App() {
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/60 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
                 {currentStory ? (
-                  <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-black transition-opacity ${isDarkMode ? 'text-white/80 hover:text-white' : 'opacity-60 hover:opacity-100 text-black'}`}><ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}</button>
+                  <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-black transition-opacity ${isDarkMode ? 'text-white/80 hover:text-white' : 'opacity-60 hover:opacity-100 text-black'}`}>
+                    <ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}
+                  </button>
                 ) : ( <h1 className="text-sm uppercase tracking-widest font-sans font-black opacity-30 text-black dark:text-white">HW / ARCHIVE</h1> )}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
                 {currentStory?.content && (
                   <div className="flex gap-1 ml-2 font-sans font-black text-black dark:text-white">
                     <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
@@ -234,7 +200,6 @@ export default function App() {
                 )}
               </div>
             </header>
-
             <main className="pt-24 pb-20 px-6 max-w-4xl mx-auto flex-grow w-full">
               <AnimatePresence mode="wait">
                 {!currentStory ? (
@@ -319,7 +284,6 @@ export default function App() {
                 )}
               </AnimatePresence>
             </main>
-
             <footer className="py-20 px-6 border-t border-black/5 dark:border-white/10 text-center opacity-40 text-[10px] tracking-widest font-serif uppercase text-black dark:text-slate-400">
               <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12 text-center font-black"><p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p><p>站内内容全是机翻，如有侵权请联系删除。</p><p className="font-bold">联系微博：<span>@恋花症-</span></p></div>
               <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none text-center">© 2026 HW ARCHIVE.</p>
