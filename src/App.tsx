@@ -86,7 +86,8 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    fetch(`${API_BASE}index.json?v=${Date.now()}`)
+   // 注意：请确认分支是 main 还是 master，路径是否包含 public
+fetch(`https://raw.githubusercontent.com/chiyasu1018-star/archive/main/public/stories/index.json?v=${Date.now()}`)
       .then(res => res.json())
       .then(async (data) => { 
         const enrichedData = await fetchRealTimestamps(data);
