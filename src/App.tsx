@@ -347,7 +347,7 @@ export default function App() {
                             }
                             if (/\[\s*box\s*\]/.test(part)) {
                               const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
-                              return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
+                              return (<div key={idx} className={`my-5 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
                             }
                             if (/\[\s*bubble:/.test(part)) {
                               const isRight = part.includes(':R');
