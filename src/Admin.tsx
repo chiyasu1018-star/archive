@@ -51,7 +51,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = content.substring(start, end);
-    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box');
+    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box') || openTag.includes('youtube');
     let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
     const newContent = content.substring(0, start) + textToInsert + content.substring(end);
     setContent(newContent);
@@ -93,7 +93,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     finally { setIsPublishing(false); }
   };
 
-  // --- 发布逻辑 (彻底解决 SHA 报错并自动跳转) ---
+  // --- 发布逻辑 ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写 Token、总标题和正文");
     setIsPublishing(true); setStatus('正在同步 GitHub...');
@@ -102,14 +102,12 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}_${Date.now()}.txt`;
 
-      // 1. 同步正文
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
         message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
         sha: editingFileSha || undefined, branch: BRANCH
       });
 
-      // 2. 核心修正：重新抓取最新的 index.json SHA，彻底解决蓝色报错
       const { data: idxF } = await octokit.rest.repos.getContent({ 
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         request: { cache: 'no-store' } 
@@ -144,7 +142,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         // @ts-ignore
-        sha: idxF.sha, // 使用最新获取到的 SHA
+        sha: idxF.sha, 
         message: `Update Index`,
         content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), 
         branch: BRANCH
@@ -152,7 +150,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
       setStatus('成功！正在跳转...');
       setTimeout(() => {
-        fetchStories(); // 刷新列表
+        fetchStories(); 
         setView('list'); 
         setEditingId(null); setEditingFileName(null);
         setTitle(''); setChapterTitle(''); setContent(''); setStatus('');
@@ -232,9 +230,10 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     {[ 
                       ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], 
                       ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], 
-                      ['---','',Minus], ['[bvid:',']',Video] 
+                      ['---','',Minus], ['[bvid:',']',Video],
+                      ['[youtube:', ']', Video] // --- 添加了此行 ---
                     ].map(([ot,ct,Icon]:any, i) => (
-                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
+                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`} title={ot}><Icon size={16}/></button>
                     ))}
                   </div>
                   <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴你的中文译文或正文内容..." />
