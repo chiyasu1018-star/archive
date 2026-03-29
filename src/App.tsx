@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
 import Admin from './Admin';
 
-// --- CONFIGURATION: SET YOUR GITHUB DETAILS HERE ---
+// --- CONFIGURATION ---
 const GITHUB_OWNER = "chiyasu1018-star"; 
 const GITHUB_REPO = "archive";       
 const CACHE_KEY = "github_commit_cache";
-const CACHE_EXPIRY = 3600000; // 1 hour
+const CACHE_EXPIRY = 3600000; 
 
 interface Chapter { title: string; fileName: string; autoWordCount?: number; lastModified?: number; }
 interface Story { 
@@ -26,7 +26,6 @@ interface Story {
   wordCount?: number; 
   content?: string; 
   currentChapterTitle?: string;
-  // New field for sorting
   lastGitUpdate?: number; 
   latestChapterTitle?: string;
 }
@@ -48,7 +47,6 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const API_BASE = '/stories/';
 
-  // --- 🌟 GitHub API Logic (Automated Update Tracking) ---
   const fetchRealTimestamps = async (baseStories: Story[]) => {
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
@@ -56,48 +54,25 @@ export default function App() {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_EXPIRY) return data;
       }
-
-      const response = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories&per_page=100`
-      );
-      if (!response.ok) throw new Error("API Limit reached or Repo Private");
-      const commits = await response.json();
-
+      const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories&per_page=100`);
+      if (!response.ok) throw new Error("API Limit");
       const updatedStories = await Promise.all(baseStories.map(async (story) => {
-        const filesToTrack = story.chapters 
-          ? story.chapters.map(c => c.fileName) 
-          : [story.fileName];
-        
-        let latestTime = 0;
-        let latestChapterName = "";
-
+        const filesToTrack = story.chapters ? story.chapters.map(c => c.fileName) : [story.fileName];
+        let latestTime = 0; let latestChapterName = "";
         for (const file of filesToTrack) {
           if (!file) continue;
           const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories/${file}&per_page=1`);
           const data = await res.json();
           if (data && data.length > 0) {
             const time = new Date(data[0].commit.committer.date).getTime();
-            if (time > latestTime) {
-              latestTime = time;
-              if (story.chapters) {
-                latestChapterName = story.chapters.find(c => c.fileName === file)?.title || "";
-              }
-            }
+            if (time > latestTime) { latestTime = time; latestChapterName = story.chapters?.find(c => c.fileName === file)?.title || ""; }
           }
         }
-
-        return { 
-          ...story, 
-          lastGitUpdate: latestTime || new Date(story.date).getTime(),
-          latestChapterTitle: latestChapterName 
-        };
+        return { ...story, lastGitUpdate: latestTime || new Date(story.date).getTime(), latestChapterTitle: latestChapterName };
       }));
-
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: updatedStories, timestamp: Date.now() }));
       return updatedStories;
-    } catch (error) {
-      return baseStories; 
-    }
+    } catch (error) { return baseStories; }
   };
 
   useEffect(() => {
@@ -156,10 +131,8 @@ export default function App() {
       const text = await response.text();
       const count = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').length;
       setCurrentStory({ ...parentStory, content: text, wordCount: count, currentChapterTitle: chapterTitle });
-      setShowChapterList(false); 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) { alert("读取文章失败"); } 
-    finally { setReading(false); }
+      setShowChapterList(false); window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) { alert("读取文章失败"); } finally { setReading(false); }
   };
 
   const handleBack = () => {
@@ -212,21 +185,13 @@ export default function App() {
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
-                  <motion.div 
-                    initial={{ scale: 0.95, opacity: 0 }} 
-                    animate={{ scale: 1, opacity: 1 }} 
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className="w-full max-w-[440px] flex flex-col items-center"
-                  >
+                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="w-full max-w-[440px] flex flex-col items-center">
                     <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
                       <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近更新</h4>
                       <div className="space-y-8">
                         {stories.slice(0, 3).map(story => {
                           const displayChapter = story.latestChapterTitle;
-                          const displayDate = story.lastGitUpdate 
-                            ? new Date(story.lastGitUpdate).toLocaleDateString('zh-CN').replace(/\//g, '.')
-                            : story.date.replace(/-/g, '.');
-                          
+                          const displayDate = story.lastGitUpdate ? new Date(story.lastGitUpdate).toLocaleDateString('zh-CN').replace(/\//g, '.') : story.date.replace(/-/g, '.');
                           return (
                             <div key={story.id}>
                               <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
@@ -237,12 +202,7 @@ export default function App() {
                         })}
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setShowUpdateNotice(false)}
-                      className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"
-                    >
-                      <X size={24} />
-                    </button>
+                    <button onClick={() => setShowUpdateNotice(false)} className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"><X size={24} /></button>
                   </motion.div>
                 </div>
               )}
@@ -327,14 +287,15 @@ export default function App() {
                               return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-zinc-900 border-white/10 text-slate-300' : 'bg-slate-100/60 border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
                             }
                             
-                            // --- 💡 仅修改此处的代码逻辑以调整气泡间距 ---
+                            // --- ⭐ 气泡间距精准修复部分 ---
                             if (/\[\s*bubble:/.test(part)) {
                               const isRight = part.includes(':R');
                               const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
                               return (
-                                <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-0`}> 
-                                  {/* my-0 将垂直外边距减为 0，leading-tight 抵消外部的 1.9 行高 */}
-                                  <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-[14px] shadow-sm tracking-tight leading-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
+                                <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-0.5 leading-none`}>
+                                  {/* my-0.5 控制气泡间上下距离；leading-none 强制切断外部行高干扰 */}
+                                  <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
+                                    {/* 恢复了 py-2.5 以保持气泡内部丰满度 */}
                                     {inner.split('\n').map((l, i) => l.trim() ? 
                                       <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> 
                                       : <div key={i} className="h-1" />
@@ -343,7 +304,6 @@ export default function App() {
                                 </div>
                               );
                             }
-                            // --- 修改结束 ---
 
                             if (/\[\s*bvid:/.test(part)) {
                               const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
