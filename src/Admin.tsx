@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square 
+  Minus, Video, PlusCircle, Square, Trash2 // --- 1. 导入 Trash2 图标 ---
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
@@ -42,7 +42,67 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchStories(); }, []);
 
-  // --- 手动插入标签 (防跳顶) ---
+  // --- 2. 新增：删除文章逻辑 ---
+  const handleDelete = async (story: any) => {
+    if (!token) return alert("请先输入 GitHub Token");
+    if (!window.confirm(`确定要永久删除《${story.title}》及其所有章节文件吗？此操作不可撤销。`)) return;
+
+    setIsPublishing(true);
+    setStatus('正在清理文件...');
+
+    try {
+      const octokit = new Octokit({ auth: token });
+      
+      // A. 获取该故事涉及的所有文件名
+      const filesToDelete = story.chapters 
+        ? story.chapters.map((c: any) => c.fileName) 
+        : [story.fileName];
+
+      // B. 循环删除存储在 /stories/ 下的 .txt 文件
+      for (const fileName of filesToDelete) {
+        try {
+          // 必须先获取该文件的 SHA 才能删除
+          const { data: fileInfo } = await octokit.rest.repos.getContent({
+            owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`
+          });
+          await octokit.rest.repos.deleteFile({
+            owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
+            message: `Delete Story File: ${fileName}`,
+            // @ts-ignore
+            sha: fileInfo.sha, branch: BRANCH
+          });
+        } catch (e) { console.log(`${fileName} 可能已被手动删除`); }
+      }
+
+      // C. 更新 index.json，移除该条目
+      setStatus('正在更新索引...');
+      const { data: idxF } = await octokit.rest.repos.getContent({ 
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
+        request: { cache: 'no-store' } 
+      });
+      // @ts-ignore
+      let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
+      const newIndex = indexData.filter((s: any) => s.id !== story.id);
+
+      await octokit.rest.repos.createOrUpdateFileContents({
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
+        // @ts-ignore
+        sha: idxF.sha,
+        message: `Remove ${story.title} from Index`,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(newIndex, null, 2)))), 
+        branch: BRANCH
+      });
+
+      setStatus('删除成功！');
+      setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
+    } catch (err: any) {
+      alert(`删除失败: ${err.message}`);
+      setIsPublishing(false);
+      setStatus('');
+    }
+  };
+
+  // --- 插入标签 ---
   const insertTag = (e: React.MouseEvent, openTag: string, closeTag: string = '') => {
     e.preventDefault();
     const textarea = textareaRef.current;
@@ -55,28 +115,18 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
     const newContent = content.substring(0, start) + textToInsert + content.substring(end);
     setContent(newContent);
-    setTimeout(() => { 
-      textarea.focus(); 
-      textarea.scrollTop = savedScrollTop; 
-    }, 10);
+    setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
   };
 
-  // --- 续传逻辑 ---
+  // --- 续传、编辑、发布逻辑保持不变 ---
   const handleAddChapter = (story: any) => {
-    setEditingId(story.id); 
-    setEditingFileName(null);
-    setEditingFileSha(null);
-    setTitle(story.title);
-    setAuthor(story.author);
-    setSourceLink(story.sourceLink || '');
+    setEditingId(story.id); setEditingFileName(null); setEditingFileSha(null);
+    setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
     setPublishDate(new Date().toISOString().split('T')[0]);
     setChapterTitle(`第 ${story.chapters ? story.chapters.length + 1 : 2} 节`);
-    setContent('');
-    setView('create');
-    setStatus(`准备为《${story.title}》添加新章节`);
+    setContent(''); setView('create'); setStatus(`准备为《${story.title}》添加新章节`);
   };
 
-  // --- 编辑逻辑 ---
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     setIsPublishing(true); setStatus('读取中...');
     try {
@@ -93,7 +143,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     finally { setIsPublishing(false); }
   };
 
-  // --- 发布逻辑 ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写 Token、总标题和正文");
     setIsPublishing(true); setStatus('正在同步 GitHub...');
@@ -101,21 +150,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const octokit = new Octokit({ auth: token });
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}_${Date.now()}.txt`;
-
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
         message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
         sha: editingFileSha || undefined, branch: BRANCH
       });
-
-      const { data: idxF } = await octokit.rest.repos.getContent({ 
-        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
-        request: { cache: 'no-store' } 
-      });
+      const { data: idxF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } });
       // @ts-ignore
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
-
       if (idx === -1) {
         const newS: any = { id: storyId, title, author, date: publishDate, sourceLink };
         if (chapterTitle) newS.chapters = [{ title: chapterTitle, fileName }];
@@ -133,29 +176,17 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           if (!s.chapters) {
             s.chapters = [{ title: "第 1 节", fileName: s.fileName }, { title: chapterTitle, fileName }];
             delete s.fileName;
-          } else {
-            s.chapters.push({ title: chapterTitle, fileName });
-          }
+          } else { s.chapters.push({ title: chapterTitle, fileName }); }
         }
       }
-
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         // @ts-ignore
-        sha: idxF.sha, 
-        message: `Update Index`,
-        content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), 
-        branch: BRANCH
+        sha: idxF.sha, message: `Update Index`,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), branch: BRANCH
       });
-
       setStatus('成功！正在跳转...');
-      setTimeout(() => {
-        fetchStories(); 
-        setView('list'); 
-        setEditingId(null); setEditingFileName(null);
-        setTitle(''); setChapterTitle(''); setContent(''); setStatus('');
-        setIsPublishing(false);
-      }, 1500);
+      setTimeout(() => { fetchStories(); setView('list'); setEditingId(null); setEditingFileName(null); setTitle(''); setChapterTitle(''); setContent(''); setStatus(''); setIsPublishing(false); }, 1500);
     } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
   };
 
@@ -179,11 +210,22 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       {view === 'list' ? (
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
             <h2 className="text-3xl font-black mb-8 font-serif italic tracking-tight">Archive Management</h2>
+            {status && <div className="text-xs font-bold text-red-500 mb-4 animate-pulse">{status}</div>}
             {isListLoading ? <div className="py-20 text-center opacity-20 uppercase tracking-[0.3em]">Loading Index...</div> : stories.map(s => (
                 <div key={s.id} className="p-6 border dark:border-white/10 rounded-2xl bg-white dark:bg-black/20 shadow-sm mb-4">
                     <div className="flex justify-between items-start mb-4">
                         <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
-                        <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
+                        <div className="flex gap-2">
+                           <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
+                           {/* --- 3. 新增：删除按钮 --- */}
+                           <button 
+                             onClick={() => handleDelete(s)} 
+                             disabled={isPublishing}
+                             className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30"
+                           >
+                             <Trash2 size={16}/>
+                           </button>
+                        </div>
                     </div>
                     <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-4">
                         <span className="text-[9px] opacity-30 uppercase w-full mb-1 font-bold">Edit Chapter:</span>
@@ -204,7 +246,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                   <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Global Title</label>
                   <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-2xl font-black focus:border-blue-500 outline-none transition-all" placeholder="总标题..." />
                </div>
-
                <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Author</label>
@@ -223,25 +264,21 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs" placeholder="https://..." />
                   </div>
                </div>
-
                <div className="space-y-3">
                   <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Content Editor</label>
                   <div className="flex flex-wrap gap-2">
                     {[ 
                       ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], 
                       ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], 
-                      ['---','',Minus], ['[bvid:',']',Video],
-                      ['[youtube:', ']', Video] // --- 添加了此行 ---
+                      ['---','',Minus], ['[bvid:',']',Video], ['[youtube:', ']', Video] 
                     ].map(([ot,ct,Icon]:any, i) => (
-                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`} title={ot}><Icon size={16}/></button>
+                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
                     ))}
                   </div>
-                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴你的中文译文或正文内容..." />
+                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴你的内容..." />
                </div>
-
                {status && <div className="text-xs font-bold text-blue-500 animate-pulse">{status}</div>}
-
-               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 active:scale-95 transition-all disabled:bg-slate-400">
+               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 transition-all disabled:bg-slate-400">
                  {isPublishing ? 'PUBLISHING...' : 'POST TO ARCHIVE'}
                </button>
             </div>
