@@ -8,8 +8,28 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
 import Admin from './Admin';
 
-interface Chapter { title: string; fileName: string; autoWordCount?: number; }
-interface Story { id: string; title: string; author: string; date: string; fileName?: string; chapters?: Chapter[]; sourceLink: string; wordCount?: number; content?: string; currentChapterTitle?: string; }
+// --- CONFIGURATION: SET YOUR GITHUB DETAILS HERE ---
+const GITHUB_OWNER = "YOUR_GITHUB_USERNAME"; // e.g., "chiyasu1018-star"
+const GITHUB_REPO = "YOUR_REPO_NAME";       // e.g., "archive"
+const CACHE_KEY = "github_commit_cache";
+const CACHE_EXPIRY = 3600000; // 1 hour
+
+interface Chapter { title: string; fileName: string; autoWordCount?: number; lastModified?: number; }
+interface Story { 
+  id: string; 
+  title: string; 
+  author: string; 
+  date: string; 
+  fileName?: string; 
+  chapters?: Chapter[]; 
+  sourceLink: string; 
+  wordCount?: number; 
+  content?: string; 
+  currentChapterTitle?: string;
+  // New field for sorting
+  lastGitUpdate?: number; 
+  latestChapterTitle?: string;
+}
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -22,26 +42,88 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
-  
-  // --- 新增：控制更新提示框状态 ---
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
 
   const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
   const API_BASE = '/stories/';
 
-  // --- 🌟 适配系统深色模式 ---
+  // --- 🌟 GitHub API Logic (Automated Update Tracking) ---
+  const fetchRealTimestamps = async (baseStories: Story[]) => {
+    try {
+      // 1. Check Session Storage Cache
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_EXPIRY) return data;
+      }
+
+      // 2. Fetch recent commits for the /stories directory
+      // This is efficient: 1 API call gives us history for all files in the folder
+      const response = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories&per_page=100`
+      );
+      if (!response.ok) throw new Error("API Limit reached or Repo Private");
+      const commits = await response.json();
+
+      // 3. Map filenames to their latest commit date
+      const fileUpdateMap: Record<string, number> = {};
+      
+      // We iterate backwards through commits to ensure we get the *latest* for each file
+      for (const commit of commits.reverse()) {
+        const commitDate = new Date(commit.commit.committer.date).getTime();
+        // Since we can't see specific files in this endpoint easily without more calls,
+        // we'll use a slightly more robust per-story check logic below if this simple version is insufficient.
+        // However, for most archives, fetching specific file commits is safer:
+      }
+
+      // Optimization: Fetch commit for each story file (Promise.all)
+      // To respect rate limits, we only do this if cache is empty
+      const updatedStories = await Promise.all(baseStories.map(async (story) => {
+        const filesToTrack = story.chapters 
+          ? story.chapters.map(c => c.fileName) 
+          : [story.fileName];
+        
+        let latestTime = 0;
+        let latestChapterName = "";
+
+        // Check the last commit for each file associated with the story
+        for (const file of filesToTrack) {
+          if (!file) continue;
+          const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories/${file}&per_page=1`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const time = new Date(data[0].commit.committer.date).getTime();
+            if (time > latestTime) {
+              latestTime = time;
+              if (story.chapters) {
+                latestChapterName = story.chapters.find(c => c.fileName === file)?.title || "";
+              }
+            }
+          }
+        }
+
+        return { 
+          ...story, 
+          lastGitUpdate: latestTime || new Date(story.date).getTime(),
+          latestChapterTitle: latestChapterName 
+        };
+      }));
+
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: updatedStories, timestamp: Date.now() }));
+      return updatedStories;
+    } catch (error) {
+      console.error("Git Fetch Error:", error);
+      return baseStories; // Fallback to original
+    }
+  };
+
   useEffect(() => {
-    // 检查本地缓存或系统偏好
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      setIsDarkMode(true);
-    }
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) setIsDarkMode(true);
   }, []);
 
-  // 监听主题变化并保存到本地
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
@@ -49,16 +131,23 @@ export default function App() {
   useEffect(() => {
     fetch(`${API_BASE}index.json?v=${Date.now()}`)
       .then(res => res.json())
-      .then(data => { setStories(data); setTimeout(() => setLoading(false), 800); })
+      .then(async (data) => { 
+        // Logic Addition: Fetch Git Timestamps after loading index.json
+        const enrichedData = await fetchRealTimestamps(data);
+        // Sort stories: Newest Git update first
+        const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
+        setStories(sorted); 
+        setTimeout(() => setLoading(false), 800); 
+      })
       .catch(() => setLoading(false));
   }, []);
 
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // --- 新增：处理确认成年并弹出更新框 ---
   const handleConfirmAge = () => {
     setHasConfirmedAge(true);
+    // Logic Addition: Popup triggers here, showing top 3 sorted by Git
     if (stories.length > 0) setShowUpdateNotice(true);
   };
 
@@ -124,7 +213,6 @@ export default function App() {
                   <h1 className="text-2xl font-bold tracking-[0.3em] mb-4 uppercase text-black dark:text-white">Content Notice</h1>
                   <p className="mb-12 text-xs leading-relaxed tracking-widest text-black/60 dark:text-slate-400">本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
-                    {/* 修改：点击这里触发确认并显示弹窗 */}
                     <button onClick={handleConfirmAge} className={`w-48 py-3 border rounded-full text-[10px] font-black tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/40 hover:bg-white hover:text-black bg-white/5' : 'border-black/20 hover:bg-black hover:text-white bg-black/5'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className="text-[10px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity text-black dark:text-white font-bold">LEAVE / 离开</button>
                   </div>
@@ -142,7 +230,6 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            {/* 🌟 新增：极简原生风格更新提示框 (全自动识别前三条) */}
             <AnimatePresence>
               {showUpdateNotice && !currentStory && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
@@ -155,20 +242,24 @@ export default function App() {
                     <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
                       <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近更新</h4>
                       <div className="space-y-8">
+                        {/* Logic: Display Top 3 based on Git Sorting */}
                         {stories.slice(0, 3).map(story => {
-                          const latestChapter = story.chapters && story.chapters.length > 0 
-                            ? story.chapters[story.chapters.length - 1].title : null;
+                          const displayChapter = story.latestChapterTitle;
+                          // Format Git timestamp as YYYY.MM.DD
+                          const displayDate = story.lastGitUpdate 
+                            ? new Date(story.lastGitUpdate).toLocaleDateString('zh-CN').replace(/\//g, '.')
+                            : story.date.replace(/-/g, '.');
+                          
                           return (
                             <div key={story.id}>
                               <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
-                              {latestChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {latestChapter}</p>}
-                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author} // {story.date.replace(/-/g, '.')}</p>
+                              {displayChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {displayChapter}</p>}
+                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author} // {displayDate}</p>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                    {/* 灰色极简圆钮 (正下方) */}
                     <button 
                       onClick={() => setShowUpdateNotice(false)}
                       className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"
