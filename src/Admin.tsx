@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Trash2 // --- 1. 导入 Trash2 图标 ---
+  Minus, Video, PlusCircle, Square, Trash2 
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
 const BRANCH = "main";             
+
+// 实时获取 GitHub 数据，防止缓存
+const RAW_GITHUB_INDEX = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/public/stories/index.json`;
 
 export default function Admin({ onBack }: { onBack: () => void }) {
   const [token, setToken] = useState(localStorage.getItem('gh_token') || '');
@@ -29,11 +32,11 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- 获取列表逻辑 ---
+  // --- 获取列表逻辑 (改用实时源) ---
   const fetchStories = async () => {
     setIsListLoading(true);
     try {
-      const res = await fetch(`/stories/index.json?v=${Date.now()}`);
+      const res = await fetch(`${RAW_GITHUB_INDEX}?v=${Date.now()}`);
       const data = await res.json();
       setStories(data || []);
     } catch (err) { setStatus("列表获取失败"); }
@@ -42,40 +45,41 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchStories(); }, []);
 
-  // --- 2. 新增：删除文章逻辑 ---
+  // --- 🌟 删除文章逻辑 (修正路径和同步) ---
   const handleDelete = async (story: any) => {
     if (!token) return alert("请先输入 GitHub Token");
-    if (!window.confirm(`确定要永久删除《${story.title}》及其所有章节文件吗？此操作不可撤销。`)) return;
+    if (!window.confirm(`确定要彻底删除《${story.title}》吗？`)) return;
 
     setIsPublishing(true);
-    setStatus('正在清理文件...');
+    setStatus('正在从 GitHub 移除文件...');
 
     try {
       const octokit = new Octokit({ auth: token });
       
-      // A. 获取该故事涉及的所有文件名
+      // 1. 获取所有相关的 .txt 文件
       const filesToDelete = story.chapters 
         ? story.chapters.map((c: any) => c.fileName) 
         : [story.fileName];
 
-      // B. 循环删除存储在 /stories/ 下的 .txt 文件
+      // 2. 依次获取 SHA 并删除
       for (const fileName of filesToDelete) {
+        if (!fileName) continue;
         try {
-          // 必须先获取该文件的 SHA 才能删除
           const { data: fileInfo } = await octokit.rest.repos.getContent({
-            owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`
+            owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
+            request: { cache: 'no-store' }
           });
           await octokit.rest.repos.deleteFile({
             owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-            message: `Delete Story File: ${fileName}`,
+            message: `Delete: ${fileName}`,
             // @ts-ignore
             sha: fileInfo.sha, branch: BRANCH
           });
-        } catch (e) { console.log(`${fileName} 可能已被手动删除`); }
+        } catch (e) { console.warn("文件跳过:", fileName); }
       }
 
-      // C. 更新 index.json，移除该条目
-      setStatus('正在更新索引...');
+      // 3. 更新 index.json
+      setStatus('同步索引中...');
       const { data: idxF } = await octokit.rest.repos.getContent({ 
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         request: { cache: 'no-store' } 
@@ -88,12 +92,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         // @ts-ignore
         sha: idxF.sha,
-        message: `Remove ${story.title} from Index`,
+        message: `Remove story ${story.id}`,
         content: btoa(unescape(encodeURIComponent(JSON.stringify(newIndex, null, 2)))), 
         branch: BRANCH
       });
 
       setStatus('删除成功！');
+      // 这里的 setStories 只是本地列表刷新
       setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
     } catch (err: any) {
       alert(`删除失败: ${err.message}`);
@@ -118,7 +123,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
   };
 
-  // --- 续传、编辑、发布逻辑保持不变 ---
+  // --- 续传逻辑 ---
   const handleAddChapter = (story: any) => {
     setEditingId(story.id); setEditingFileName(null); setEditingFileSha(null);
     setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
@@ -127,6 +132,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setContent(''); setView('create'); setStatus(`准备为《${story.title}》添加新章节`);
   };
 
+  // --- 编辑逻辑 ---
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     setIsPublishing(true); setStatus('读取中...');
     try {
@@ -143,6 +149,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     finally { setIsPublishing(false); }
   };
 
+  // --- 发布逻辑 ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写 Token、总标题和正文");
     setIsPublishing(true); setStatus('正在同步 GitHub...');
@@ -217,7 +224,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                         <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
                         <div className="flex gap-2">
                            <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
-                           {/* --- 3. 新增：删除按钮 --- */}
                            <button 
                              onClick={() => handleDelete(s)} 
                              disabled={isPublishing}
