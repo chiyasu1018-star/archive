@@ -352,7 +352,7 @@ export default function App() {
                             if (/\[\s*bubble:/.test(part)) {
                               const isRight = part.includes(':R');
                               const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
-                              return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-2`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-2" />)}</div></div>);
+                              return (<div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} my-1`}><div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-2" />)}</div></div>);
                             }
                             if (/\[\s*bvid:/.test(part)) {
                               const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
