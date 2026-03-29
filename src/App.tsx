@@ -294,7 +294,7 @@ if (/\[\s*bubble:/.test(part)) {
   return (
     <div 
       key={idx} 
-      className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-2.5 leading-none relative z-10`}
+      className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}
     >
       {/* 
          -my-2.5: 使用负外边距强制抵消外层行高和换行符带来的间隙。
