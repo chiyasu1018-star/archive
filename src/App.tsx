@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
 import Admin from './Admin';
+import { inject } from '@vercel/analytics'; 
 
 // --- CONFIGURATION ---
 const GITHUB_OWNER = "chiyasu1018-star"; 
@@ -34,6 +35,7 @@ interface Story {
 }
 
 export default function App() {
+  useEffect(() => { inject(); }, []);
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [showChapterList, setShowChapterList] = useState(false); 
