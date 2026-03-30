@@ -35,7 +35,6 @@ interface Story {
 }
 
 export default function App() {
-  useEffect(() => { inject(); }, []);
   const [stories, setStories] = useState<Story[]>([]);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [showChapterList, setShowChapterList] = useState(false); 
