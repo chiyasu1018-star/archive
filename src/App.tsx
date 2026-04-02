@@ -140,13 +140,28 @@ export default function App() {
     } catch (err) { alert("读取文章失败"); } finally { setReading(false); }
   };
 
-  const handleBack = () => {
-    if (currentStory?.content && currentStory.chapters) {
-      setShowChapterList(true);
-      setCurrentStory({ ...currentStory, content: undefined });
-    } else { setCurrentStory(null); setShowChapterList(false); }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+ // 必须包含 [youtube:...] 这部分，系统才能在正确的位置切开文字插入视频
+conif (/\[\s*bvid:/.test(part)) {
+  const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
+  return (<div key={idx} className="...">...</div>);
+} 
+
+// --- 在这里新起一行，贴入下面的代码 ---
+
+if (/\[\s*youtube:/.test(part)) {
+  const ytid = part.match(/youtube:\s*([a-zA-Z0-9_-]+)/)?.[1];
+  return (
+    <div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10">
+      <iframe 
+        src={`https://www.youtube.com/embed/${ytid}`} 
+        className="w-full h-full border-none" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowFullScreen 
+        loading="lazy" 
+      />
+    </div>
+  );
+}st blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|\[\s*youtube:[a-zA-Z0-9_-]+\s*\]|---)/g;
 
   const applyInlineStyles = (text: string) => {
     if (!text) return '';
