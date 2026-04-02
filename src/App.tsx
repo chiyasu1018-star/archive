@@ -335,6 +335,60 @@ export default function App() {
                           });
                         })()}
                       </article>
+                    {/* --- 🌟 新增：章节导航功能 (上一章 / 下一章) --- */}
+{currentStory.chapters && currentStory.chapters.length > 1 && (
+  <div className="flex justify-between items-center py-12 border-t border-black/5 dark:border-white/10 mt-16 gap-4">
+    {(() => {
+      const chapters = currentStory.chapters;
+      // 根据当前章节标题找到对应的索引
+      const currentIndex = chapters.findIndex(c => c.title === currentStory.currentChapterTitle);
+
+      return (
+        <>
+          {/* 上一章按钮 */}
+          <div className="flex-1 text-left">
+            {currentIndex > 0 && (
+              <button
+                onClick={() => loadFullStory(currentStory, chapters[currentIndex - 1].fileName, chapters[currentIndex - 1].title)}
+                className={`group flex flex-col gap-2 transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}
+              >
+                <span className="text-[9px] uppercase tracking-[0.2em] font-sans font-black flex items-center gap-1">
+                  <ChevronLeft size={12} /> Previous / 上一章
+                </span>
+                <span className="text-sm font-serif italic font-bold">{chapters[currentIndex - 1].title}</span>
+              </button>
+            )}
+          </div>
+
+          {/* 回目录按钮 (中间的小图标) */}
+          <button
+            onClick={() => setShowChapterList(true)}
+            className={`p-4 rounded-full border transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-white/40' : 'border-black/5 hover:bg-black/5 text-black/20'}`}
+            title="回目录"
+          >
+            <BookOpen size={18} />
+          </button>
+
+          {/* 下一章按钮 */}
+          <div className="flex-1 text-right">
+            {currentIndex < chapters.length - 1 && (
+              <button
+                onClick={() => loadFullStory(currentStory, chapters[currentIndex + 1].fileName, chapters[currentIndex + 1].title)}
+                className={`group flex flex-col items-end gap-2 transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}
+              >
+                <span className="text-[9px] uppercase tracking-[0.2em] font-sans font-black flex items-center gap-1">
+                  Next / 下一章 <ChevronLeft size={12} className="rotate-180" />
+                </span>
+                <span className="text-sm font-serif italic font-bold">{chapters[currentIndex + 1].title}</span>
+              </button>
+            )}
+          </div>
+        </>
+      );
+    })()}
+  </div>
+)}
+{/* --- 导航结束 --- */}
                     )}
                     <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/20' : 'border-black/10'}`}>
                        <p className={`text-sm font-black tracking-widest ${isDarkMode ? 'text-white/60' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
