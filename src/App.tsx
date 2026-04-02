@@ -94,7 +94,8 @@ export default function App() {
       .then(res => res.json())
       .then(async (data) => { 
         const enrichedData = await fetchRealTimestamps(data);
-        const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
+       // 这样改之后，你在后台修改 Date，文章在列表里的位置就会随之改变
+const sorted = enrichedData.sort((a: Story, b: Story) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setStories(sorted); 
         setTimeout(() => setLoading(false), 800); 
       })
