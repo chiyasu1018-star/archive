@@ -273,7 +273,6 @@ export default function App() {
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-black dark:text-white">Loading Content...</div>) : (
-                      // 🌟 开始优化章节导航与内容包裹
                       <>
                         <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className="text-justify mb-24 font-serif text-black dark:text-slate-200">
                           {(() => {
@@ -337,7 +336,7 @@ export default function App() {
                           })()}
                         </article>
 
-                        {/* --- 🌟 新增：章节导航功能 (上一章 / 下一章) --- */}
+                        {/* --- 🌟 章节导航功能 (已删除回目录按钮) --- */}
                         {currentStory.chapters && currentStory.chapters.length > 1 && (
                           <div className="flex justify-between items-center py-12 border-t border-black/5 dark:border-white/10 mt-16 gap-4">
                             {(() => {
@@ -353,7 +352,6 @@ export default function App() {
                                       </button>
                                     )}
                                   </div>
-                                  <button onClick={() => setShowChapterList(true)} className={`p-4 rounded-full border transition-all ${isDarkMode ? 'border-white/10 hover:bg-white/5 text-white/40' : 'border-black/5 hover:bg-black/5 text-black/20'}`} title="回目录"><BookOpen size={18} /></button>
                                   <div className="flex-1 text-right">
                                     {currentIndex < chapters.length - 1 && (
                                       <button onClick={() => loadFullStory(currentStory, chapters[currentIndex + 1].fileName, chapters[currentIndex + 1].title)} className={`group flex flex-col items-end gap-2 transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}>
