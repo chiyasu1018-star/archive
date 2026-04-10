@@ -45,7 +45,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
-  const [showUpdateNotice, setShowUpdateNotice] = useState(false);
+  // 🌟 已删除 showUpdateNotice 状态
 
   const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,7 +94,7 @@ export default function App() {
       .then(res => res.json())
       .then(async (data) => { 
         const enrichedData = await fetchRealTimestamps(data);
-        // 🌟 排序逻辑：严格按照 Git 真实更新时间排序
+        // 🌟 排序逻辑：严格按照 Git 真实更新时间排序 (修复了之前代码的语法错误)
         const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
         setStories(sorted); 
         setTimeout(() => setLoading(false), 800); 
@@ -107,7 +107,7 @@ export default function App() {
 
   const handleConfirmAge = () => {
     setHasConfirmedAge(true);
-    if (stories.length > 0) setShowUpdateNotice(true);
+    // 🌟 已删除 setShowUpdateNotice 的触发逻辑
   };
 
   const handleStoryClick = async (story: Story) => {
@@ -187,31 +187,7 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            <AnimatePresence>
-              {showUpdateNotice && !currentStory && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 bg-black/40 dark:bg-black/80 backdrop-blur-sm">
-                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="w-full max-w-[440px] flex flex-col items-center">
-                    <div className={`${isDarkMode ? 'bg-[#1a1a1a] border-white/10' : 'bg-[#F5F5F5] border-black/10'} border p-10 rounded-2xl shadow-2xl w-full text-center`}>
-                      <h4 className="text-[10px] uppercase tracking-[0.4em] font-sans font-black opacity-30 mb-10 text-black dark:text-slate-400">最近更新</h4>
-                      <div className="space-y-8">
-                        {stories.slice(0, 3).map(story => {
-                          const displayChapter = story.latestChapterTitle;
-                          return (
-                            <div key={story.id}>
-                              <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
-                              {displayChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {displayChapter}</p>}
-                              {/* 🌟 删除了弹窗中的日期 */}
-                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <button onClick={() => setShowUpdateNotice(false)} className="mt-8 w-12 h-12 rounded-full bg-slate-500/20 hover:bg-slate-500/40 text-slate-600 dark:text-slate-100 flex items-center justify-center transition-all shadow-lg border border-black/5 dark:border-white/10"><X size={24} /></button>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
+            {/* 🌟 弹窗组件 AnimatePresence 已删除 */}
 
             <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/60 border-white/10' : 'bg-white/30 border-black/5'}`}>
               <div className="flex items-center gap-4">
@@ -250,14 +226,11 @@ export default function App() {
       onClick={() => handleStoryClick(s)} 
       className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}
     >
-      {/* 标题行容器 */}
       <div className="flex justify-between items-baseline w-full">
         <div className="flex items-baseline gap-3">
           <h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>
           {s.chapters && <BookOpen size={14} className="opacity-30" />}
         </div>
-
-        {/* 🌟 右侧的小圆点提示 */}
         {isNew && (
           <div className="flex items-center gap-2 pr-2">
             <span className="text-[8px] font-black tracking-widest opacity-30 uppercase font-sans">New</span>
@@ -268,8 +241,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* 作者信息行 */}
       <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black">
         <span>{s.author}</span>
         {s.chapters && <span>{s.chapters.length} 章节</span>}
@@ -302,7 +273,6 @@ export default function App() {
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
                     <header className="mb-16 border-b border-black/5 dark:border-white/10 pb-12 font-sans">
                       <h2 className="text-4xl font-serif font-black italic mb-8 leading-tight text-black dark:text-white">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-60 mt-4 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
-                      {/* 🌟 删除了文章详情中的日期 */}
                       <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black text-black dark:text-slate-300"><p>作者: {currentStory.author}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
