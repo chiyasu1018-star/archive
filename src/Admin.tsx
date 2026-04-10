@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Trash2, RotateCw // 🌟 导入刷新图标
+  Minus, Video, PlusCircle, Square, Trash2, RotateCw, X // 🌟 导入 X 图标
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
@@ -24,7 +24,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  // 🌟 已删除 publishDate 状态
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
   const [content, setContent] = useState('');
@@ -32,14 +31,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [isPublishing, setIsPublishing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- 获取列表逻辑 (改用实时源) ---
+  // --- 获取列表逻辑 ---
   const fetchStories = async () => {
     setIsListLoading(true);
     try {
       const res = await fetch(`${RAW_GITHUB_INDEX}?v=${Date.now()}`);
       const data = await res.json();
       setStories(data || []);
-      setStatus("列表已更新");
+      setStatus("列表已同步");
       setTimeout(() => setStatus(""), 2000);
     } catch (err) { setStatus("列表获取失败"); }
     finally { setIsListLoading(false); }
@@ -47,13 +46,77 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchStories(); }, []);
 
-  // --- 删除文章逻辑 ---
-  const handleDelete = async (story: any) => {
-    if (!token) return alert("请先输入 GitHub Token");
-    if (!window.confirm(`确定要彻底删除《${story.title}》吗？`)) return;
+  // --- 🌟 新增：删除单个分P（章节）逻辑 ---
+  const handleDeleteChapter = async (story: any, fileName: string, cTitle: string) => {
+    if (!token) return alert("请先输入 Token");
+    if (!window.confirm(`确定要删除《${story.title}》中的章节：${cTitle} 吗？\n文件：${fileName}`)) return;
 
     setIsPublishing(true);
-    setStatus('正在从 GitHub 移除文件...');
+    setStatus('正在删除指定章节文件...');
+
+    try {
+      const octokit = new Octokit({ auth: token });
+      
+      // 1. 删除 GitHub 上的 TXT 文件
+      const { data: fileInfo } = await octokit.rest.repos.getContent({
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
+        request: { cache: 'no-store' }
+      });
+      await octokit.rest.repos.deleteFile({
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
+        message: `Delete chapter: ${cTitle}`,
+        // @ts-ignore
+        sha: fileInfo.sha, branch: BRANCH
+      });
+
+      // 2. 更新 index.json
+      setStatus('更新目录索引...');
+      const { data: idxF } = await octokit.rest.repos.getContent({ 
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
+        request: { cache: 'no-store' } 
+      });
+      // @ts-ignore
+      let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
+      
+      const sIdx = indexData.findIndex((s: any) => s.id === story.id);
+      if (sIdx !== -1) {
+        if (indexData[sIdx].chapters) {
+          // 移除指定的章节
+          indexData[sIdx].chapters = indexData[sIdx].chapters.filter((c: any) => c.fileName !== fileName);
+          // 如果删完后一个章节都没了，直接删除整个故事条目
+          if (indexData[sIdx].chapters.length === 0) {
+            indexData = indexData.filter((s: any) => s.id !== story.id);
+          }
+        } else {
+          // 如果不是分P文章，按常规删除处理
+          indexData = indexData.filter((s: any) => s.id !== story.id);
+        }
+      }
+
+      await octokit.rest.repos.createOrUpdateFileContents({
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
+        // @ts-ignore
+        sha: idxF.sha,
+        message: `Remove chapter ${cTitle} from index`,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), 
+        branch: BRANCH
+      });
+
+      setStatus('章节删除成功！');
+      setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
+    } catch (err: any) {
+      alert(`删除章节失败: ${err.message}`);
+      setIsPublishing(false);
+    }
+  };
+
+  // --- 删除整篇文章逻辑 ---
+  const handleDelete = async (story: any) => {
+    if (!token) return alert("请先输入 GitHub Token");
+    if (!window.confirm(`确定要彻底删除《${story.title}》及其所有章节吗？`)) return;
+
+    setIsPublishing(true);
+    setStatus('正在清理所有相关文件...');
 
     try {
       const octokit = new Octokit({ auth: token });
@@ -68,7 +131,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           });
           await octokit.rest.repos.deleteFile({
             owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-            message: `Delete: ${fileName}`,
+            message: `Delete whole story file: ${fileName}`,
             // @ts-ignore
             sha: fileInfo.sha, branch: BRANCH
           });
@@ -93,7 +156,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         branch: BRANCH
       });
 
-      setStatus('删除成功！');
+      setStatus('整篇删除成功！');
       setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
     } catch (err: any) {
       alert(`删除失败: ${err.message}`);
@@ -118,7 +181,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
   };
 
-  // --- 续传逻辑 ---
+  // --- 续传、编辑、发布逻辑 ---
   const handleAddChapter = (story: any) => {
     setEditingId(story.id); setEditingFileName(null); setEditingFileSha(null);
     setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
@@ -126,7 +189,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setContent(''); setView('create'); setStatus(`准备为《${story.title}》添加新章节`);
   };
 
-  // --- 编辑逻辑 ---
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     setIsPublishing(true); setStatus('读取中...');
     try {
@@ -142,7 +204,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     finally { setIsPublishing(false); }
   };
 
-  // --- 发布逻辑 (已彻底删除 Date) ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写 Token、总标题和正文");
     setIsPublishing(true); setStatus('正在同步 GitHub...');
@@ -155,21 +216,16 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
         sha: editingFileSha || undefined, branch: BRANCH
       });
-      const { data: idxF } = await octokit.rest.repos.getContent({ 
-        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } 
-      });
+      const { data: idxF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } });
       // @ts-ignore
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
-
       if (idx === -1) {
-        // 🌟 新建：不再保存 date
         const newS: any = { id: storyId, title, author, sourceLink };
         if (chapterTitle) newS.chapters = [{ title: chapterTitle, fileName }];
         else newS.fileName = fileName;
         indexData = [newS, ...indexData];
       } else {
-        // 🌟 修改：不再同步 date
         const s = indexData[idx];
         s.title = title; s.author = author; s.sourceLink = sourceLink;
         if (editingFileName) {
@@ -216,13 +272,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-8">
                <h2 className="text-3xl font-black font-serif italic tracking-tight">Archive Management</h2>
-               {/* 🌟 刷新按钮 */}
-               <button 
-                 onClick={fetchStories} 
-                 disabled={isListLoading}
-                 className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-all ${isListLoading ? 'animate-spin' : ''}`}
-                 title="刷新列表"
-               >
+               <button onClick={fetchStories} disabled={isListLoading} className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-all ${isListLoading ? 'animate-spin' : ''}`} title="刷新列表">
                  <RotateCw size={20} className="opacity-40" />
                </button>
             </div>
@@ -235,13 +285,19 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                         <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.author}</span></div>
                         <div className="flex gap-2">
                            <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
-                           <button onClick={() => handleDelete(s)} disabled={isPublishing} className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30"><Trash2 size={16}/></button>
+                           <button onClick={() => handleDelete(s)} disabled={isPublishing} className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30" title="删除整篇文章"><Trash2 size={16}/></button>
                         </div>
                     </div>
                     <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-4">
-                        <span className="text-[9px] opacity-30 uppercase w-full mb-1 font-bold">Edit Chapter:</span>
+                        <span className="text-[9px] opacity-30 uppercase w-full mb-1 font-bold">Manage Chapters:</span>
                         {s.chapters ? s.chapters.map((c: any, i: number) => (
-                            <button key={i} onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs hover:text-blue-600 border border-transparent transition-all">{c.title}</button>
+                            <div key={i} className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-lg pr-1 group">
+                                <button onClick={() => handleEdit(s, c.fileName, c.title)} className="px-3 py-1.5 text-xs hover:text-blue-600 transition-all">{c.title}</button>
+                                {/* 🌟 章节独立删除按钮 */}
+                                <button onClick={() => handleDeleteChapter(s, c.fileName, c.title)} className="p-1 hover:bg-red-500 hover:text-white rounded transition-all opacity-0 group-hover:opacity-100 text-red-500">
+                                  <X size={12}/>
+                                </button>
+                            </div>
                         )) : (
                             <button onClick={() => handleEdit(s, s.fileName)} className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-lg text-xs italic text-blue-500">单页正文 (点击修改)</button>
                         )}
@@ -262,7 +318,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Author</label>
                     <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" />
                   </div>
-                  {/* 🌟 日期输入框已删除 */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Chapter Title</label>
                     <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 text-blue-600 font-bold" placeholder="章节名（如：第 1 节）" />
