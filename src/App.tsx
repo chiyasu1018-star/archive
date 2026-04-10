@@ -94,10 +94,8 @@ export default function App() {
       .then(res => res.json())
       .then(async (data) => { 
         const enrichedData = await fetchRealTimestamps(data);
-// 🌟 强行使用 Git 真实更新时间排序
-// 仅按 GitHub 真实上传时间排序
-const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
-});
+        // 🌟 排序逻辑：严格按照 Git 真实更新时间排序
+        const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
         setStories(sorted); 
         setTimeout(() => setLoading(false), 800); 
       })
@@ -198,12 +196,12 @@ const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) 
                       <div className="space-y-8">
                         {stories.slice(0, 3).map(story => {
                           const displayChapter = story.latestChapterTitle;
-                          const displayDate = story.lastGitUpdate ? new Date(story.lastGitUpdate).toLocaleDateString('zh-CN').replace(/\//g, '.') : story.date.replace(/-/g, '.');
                           return (
                             <div key={story.id}>
                               <p className={`text-xl font-serif font-black leading-tight tracking-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{story.title}</p>
                               {displayChapter && <p className="text-sm font-serif italic font-bold text-slate-500 dark:text-slate-300 mt-2">— {displayChapter}</p>}
-                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author} // {displayDate}</p>
+                              {/* 🌟 删除了弹窗中的日期 */}
+                              <p className={`text-[9px] uppercase tracking-[0.2em] opacity-40 dark:opacity-60 mt-4 font-sans font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{story.author}</p>
                             </div>
                           );
                         })}
@@ -244,7 +242,8 @@ const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) 
                       {currentItems.map(s => (
                         <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                           <div className="flex items-baseline gap-3"><h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                          <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span><span>{s.date?.replace(/-/g, '.')}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
+                          {/* 🌟 删除了列表中的日期 */}
+                          <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
                         </motion.button>
                       ))}
                     </section>
@@ -272,7 +271,8 @@ const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) 
                   <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
                     <header className="mb-16 border-b border-black/5 dark:border-white/10 pb-12 font-sans">
                       <h2 className="text-4xl font-serif font-black italic mb-8 leading-tight text-black dark:text-white">{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-60 mt-4 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
-                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black text-black dark:text-slate-300"><p>作者: {currentStory.author}</p><p>时间: {currentStory.date?.replace(/-/g, '.')}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
+                      {/* 🌟 删除了文章详情中的日期 */}
+                      <div className="text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black text-black dark:text-slate-300"><p>作者: {currentStory.author}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className="py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse text-black dark:text-white">Loading Content...</div>) : (
@@ -339,7 +339,6 @@ const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) 
                           })()}
                         </article>
 
-                        {/* --- 🌟 章节导航功能 (已删除回目录按钮) --- */}
                         {currentStory.chapters && currentStory.chapters.length > 1 && (
                           <div className="flex justify-between items-center py-12 border-t border-black/5 dark:border-white/10 mt-16 gap-4">
                             {(() => {
