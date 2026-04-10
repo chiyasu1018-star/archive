@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Octokit } from "octokit";
 import { 
   ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Trash2 
+  Minus, Video, PlusCircle, Square, Trash2, RotateCw // 🌟 导入刷新图标
 } from 'lucide-react';
 
 const REPO_OWNER = "chiyasu1018-star"; 
@@ -24,7 +24,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]);
+  // 🌟 已删除 publishDate 状态
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
   const [content, setContent] = useState('');
@@ -39,13 +39,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const res = await fetch(`${RAW_GITHUB_INDEX}?v=${Date.now()}`);
       const data = await res.json();
       setStories(data || []);
+      setStatus("列表已更新");
+      setTimeout(() => setStatus(""), 2000);
     } catch (err) { setStatus("列表获取失败"); }
     finally { setIsListLoading(false); }
   };
 
   useEffect(() => { fetchStories(); }, []);
 
-  // --- 🌟 删除文章逻辑 (修正路径和同步) ---
+  // --- 删除文章逻辑 ---
   const handleDelete = async (story: any) => {
     if (!token) return alert("请先输入 GitHub Token");
     if (!window.confirm(`确定要彻底删除《${story.title}》吗？`)) return;
@@ -55,13 +57,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
     try {
       const octokit = new Octokit({ auth: token });
-      
-      // 1. 获取所有相关的 .txt 文件
-      const filesToDelete = story.chapters 
-        ? story.chapters.map((c: any) => c.fileName) 
-        : [story.fileName];
+      const filesToDelete = story.chapters ? story.chapters.map((c: any) => c.fileName) : [story.fileName];
 
-      // 2. 依次获取 SHA 并删除
       for (const fileName of filesToDelete) {
         if (!fileName) continue;
         try {
@@ -78,7 +75,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         } catch (e) { console.warn("文件跳过:", fileName); }
       }
 
-      // 3. 更新 index.json
       setStatus('同步索引中...');
       const { data: idxF } = await octokit.rest.repos.getContent({ 
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
@@ -98,7 +94,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       });
 
       setStatus('删除成功！');
-      // 这里的 setStories 只是本地列表刷新
       setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
     } catch (err: any) {
       alert(`删除失败: ${err.message}`);
@@ -127,7 +122,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const handleAddChapter = (story: any) => {
     setEditingId(story.id); setEditingFileName(null); setEditingFileSha(null);
     setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
-    setPublishDate(new Date().toISOString().split('T')[0]);
     setChapterTitle(`第 ${story.chapters ? story.chapters.length + 1 : 2} 节`);
     setContent(''); setView('create'); setStatus(`准备为《${story.title}》添加新章节`);
   };
@@ -142,14 +136,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const text = decodeURIComponent(escape(atob(f.content)));
       setEditingId(story.id); setEditingFileName(fileName); // @ts-ignore
       setEditingFileSha(f.sha); setTitle(story.title); setAuthor(story.author);
-      setPublishDate(story.date || new Date().toISOString().split('T')[0]);
       setSourceLink(story.sourceLink || ''); setChapterTitle(cTitle); setContent(text);
       setView('create'); setStatus('正文已加载');
     } catch (err: any) { alert("读取失败"); }
     finally { setIsPublishing(false); }
   };
 
-  // --- 发布逻辑 ---
+  // --- 发布逻辑 (已彻底删除 Date) ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("请填写 Token、总标题和正文");
     setIsPublishing(true); setStatus('正在同步 GitHub...');
@@ -162,18 +155,23 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         message: `Archive: ${title}`, content: btoa(unescape(encodeURIComponent(content))),
         sha: editingFileSha || undefined, branch: BRANCH
       });
-      const { data: idxF } = await octokit.rest.repos.getContent({ owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } });
+      const { data: idxF } = await octokit.rest.repos.getContent({ 
+        owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`, request: { cache: 'no-store' } 
+      });
       // @ts-ignore
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
+
       if (idx === -1) {
-        const newS: any = { id: storyId, title, author, date: publishDate, sourceLink };
+        // 🌟 新建：不再保存 date
+        const newS: any = { id: storyId, title, author, sourceLink };
         if (chapterTitle) newS.chapters = [{ title: chapterTitle, fileName }];
         else newS.fileName = fileName;
         indexData = [newS, ...indexData];
       } else {
+        // 🌟 修改：不再同步 date
         const s = indexData[idx];
-        s.title = title; s.author = author; s.date = publishDate; s.sourceLink = sourceLink;
+        s.title = title; s.author = author; s.sourceLink = sourceLink;
         if (editingFileName) {
           if (s.chapters) {
             const ci = s.chapters.findIndex((c: any) => c.fileName === editingFileName);
@@ -216,21 +214,28 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
       {view === 'list' ? (
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">
-            <h2 className="text-3xl font-black mb-8 font-serif italic tracking-tight">Archive Management</h2>
-            {status && <div className="text-xs font-bold text-red-500 mb-4 animate-pulse">{status}</div>}
+            <div className="flex items-center justify-between mb-8">
+               <h2 className="text-3xl font-black font-serif italic tracking-tight">Archive Management</h2>
+               {/* 🌟 刷新按钮 */}
+               <button 
+                 onClick={fetchStories} 
+                 disabled={isListLoading}
+                 className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-all ${isListLoading ? 'animate-spin' : ''}`}
+                 title="刷新列表"
+               >
+                 <RotateCw size={20} className="opacity-40" />
+               </button>
+            </div>
+            
+            {status && <div className="text-xs font-bold text-blue-500 mb-4 animate-pulse">{status}</div>}
+            
             {isListLoading ? <div className="py-20 text-center opacity-20 uppercase tracking-[0.3em]">Loading Index...</div> : stories.map(s => (
                 <div key={s.id} className="p-6 border dark:border-white/10 rounded-2xl bg-white dark:bg-black/20 shadow-sm mb-4">
                     <div className="flex justify-between items-start mb-4">
-                        <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.date} // {s.author}</span></div>
+                        <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.author}</span></div>
                         <div className="flex gap-2">
                            <button onClick={() => handleAddChapter(s)} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase hover:bg-blue-700 transition-all"><PlusCircle size={14}/> 续传/分P</button>
-                           <button 
-                             onClick={() => handleDelete(s)} 
-                             disabled={isPublishing}
-                             className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30"
-                           >
-                             <Trash2 size={16}/>
-                           </button>
+                           <button onClick={() => handleDelete(s)} disabled={isPublishing} className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30"><Trash2 size={16}/></button>
                         </div>
                     </div>
                     <div className="flex gap-2 flex-wrap border-t dark:border-white/5 pt-4">
@@ -257,10 +262,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Author</label>
                     <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Date</label>
-                    <input type="date" value={publishDate} onChange={e => setPublishDate(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" />
-                  </div>
+                  {/* 🌟 日期输入框已删除 */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Chapter Title</label>
                     <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 text-blue-600 font-bold" placeholder="章节名（如：第 1 节）" />
