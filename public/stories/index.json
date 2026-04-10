@@ -9,11 +9,20 @@
   },
   {
     "id": "1775824017069",
-    "title": "test2",
-    "author": "123",
+    "title": "百分百全责",
+    "author": "샤베",
     "date": "2026-04-10",
-    "sourceLink": "",
-    "fileName": "story_1775824017069_1775824017069.txt"
+    "sourceLink": "https://posty.pe/b6w9bx",
+    "chapters": [
+      {
+        "title": "第 1 节",
+        "fileName": "story_1775824017069_1775824017069.txt"
+      },
+      {
+        "title": "",
+        "fileName": "story_1775824017069_1775828802333.txt"
+      }
+    ]
   },
   {
     "id": "1775137893321",
