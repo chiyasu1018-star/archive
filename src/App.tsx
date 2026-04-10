@@ -95,11 +95,8 @@ export default function App() {
       .then(async (data) => { 
         const enrichedData = await fetchRealTimestamps(data);
 // 🌟 强行使用 Git 真实更新时间排序
-const sorted = enrichedData.sort((a: Story, b: Story) => {
-  // 优先使用 Git 抓取的时间，如果没有（比如 API 挂了），则退回到手动日期作为保底
-  const timeA = a.lastGitUpdate || new Date(a.date).getTime() || 0;
-  const timeB = b.lastGitUpdate || new Date(b.date).getTime() || 0;
-  return timeB - timeA; // 真正的“新上传的在最上面”
+// 仅按 GitHub 真实上传时间排序
+const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
 });
         setStories(sorted); 
         setTimeout(() => setLoading(false), 800); 
