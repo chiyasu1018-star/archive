@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen } from 'lucide-react';
 import Admin from './Admin';
-import { Analytics } from '@vercel/analytics/react'; 
+import { Analytics } from '@vercel/analytics/react';
+import { renderStoryArticleBody } from './storyContent'; 
 
 // --- CONFIGURATION ---
 const GITHUB_OWNER = "chiyasu1018-star"; 
@@ -45,6 +46,12 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasConfirmedAge, setHasConfirmedAge] = useState(false);
   const [isHonest, setIsHonest] = useState(false);
+  /** 移动端文章页：点击中央区域切换顶栏与底部操作区 */
+  const [readingChromeVisible, setReadingChromeVisible] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  );
+  const readingChromeToggleAt = useRef(0);
 
   const ITEMS_PER_PAGE = 8; 
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,6 +94,21 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobileViewport(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const isReadingArticle = Boolean(currentStory?.content && !showChapterList && !reading);
+  const isImmersiveReading = isMobileViewport && isReadingArticle;
+
+  useEffect(() => {
+    if (isReadingArticle) setReadingChromeVisible(false);
+  }, [isReadingArticle, currentStory?.id, currentStory?.content, showChapterList, reading]);
 
   useEffect(() => {
     fetch(`${LIVE_INDEX_URL}?v=${Date.now()}`)
@@ -143,11 +165,22 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const applyInlineStyles = (text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/\*\*\s*(.*?)\s*\*\*/g, `<strong class="font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}">$1</strong>`)
-      .replace(/\*\s*(.*?)\s*\*/g, '<em class="italic opacity-80">$1</em>');
+  const toggleReadingChromeFromCenter = (clientX: number, clientY: number) => {
+    if (!isImmersiveReading) return;
+    const x = clientX / window.innerWidth;
+    const y = clientY / window.innerHeight;
+    if (x < 0.3 || x > 0.7 || y < 0.3 || y > 0.7) return;
+    const now = Date.now();
+    if (now - readingChromeToggleAt.current < 320) return;
+    readingChromeToggleAt.current = now;
+    setReadingChromeVisible((v) => !v);
+  };
+
+  const onReadingContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isImmersiveReading) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('a, button, iframe, input, textarea, select, [data-no-chrome-toggle]')) return;
+    toggleReadingChromeFromCenter(e.clientX, e.clientY);
   };
 
   if (isAdmin) return <Admin onBack={() => setIsAdmin(false)} />;
@@ -182,27 +215,45 @@ export default function App() {
         ) : (
           <motion.div key="main-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col min-h-screen">
             
-            <header className={`fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/60 border-white/10' : 'bg-white/30 border-black/5'}`}>
+            <motion.header
+              className={`fixed top-0 left-0 right-0 z-50 px-5 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4 flex justify-between items-center backdrop-blur-sm border-b ${isDarkMode ? 'bg-black/60 border-white/10' : 'bg-white/30 border-black/5'}`}
+              initial={false}
+              animate={
+                isImmersiveReading
+                  ? { y: readingChromeVisible ? 0 : '-100%', opacity: readingChromeVisible ? 1 : 0 }
+                  : { y: 0, opacity: 1 }
+              }
+              transition={{ type: 'spring', stiffness: 420, damping: 38, mass: 0.85 }}
+              style={{ pointerEvents: isImmersiveReading && !readingChromeVisible ? 'none' : 'auto' }}
+            >
               <div className="flex items-center gap-4">
                 {currentStory ? (
-                  <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-black transition-opacity ${isDarkMode ? 'text-white/80 hover:text-white' : 'opacity-60 hover:opacity-100 text-black'}`}>
+                  <button type="button" onClick={handleBack} className={`flex min-h-[44px] min-w-[44px] items-center gap-2 text-xs uppercase tracking-widest font-sans font-black transition-opacity ${isDarkMode ? 'text-white/80 hover:text-white' : 'opacity-60 hover:opacity-100 text-black'}`}>
                     <ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}
                   </button>
                 ) : ( <h1 className={`text-sm uppercase tracking-widest font-sans font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-black'}`}>HW / ARCHIVE</h1> )}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
+                <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
                 {currentStory?.content && (
                   <div className={`flex gap-1 ml-2 font-sans font-black ${isDarkMode ? 'text-white' : 'text-black'}`}>
-                    <button onClick={() => setFontSize(f => Math.max(f-2, 14))} className="w-8 h-8 text-xs">A-</button>
-                    <button onClick={() => setFontSize(f => Math.min(f+2, 28))} className="w-8 h-8 text-lg">A+</button>
+                    <button type="button" onClick={() => setFontSize(f => Math.max(f-2, 14))} className="min-h-[44px] min-w-[44px] text-xs">A-</button>
+                    <button type="button" onClick={() => setFontSize(f => Math.min(f+2, 28))} className="min-h-[44px] min-w-[44px] text-lg">A+</button>
                   </div>
                 )}
               </div>
-            </header>
-            <main className="pt-24 pb-20 px-6 max-w-4xl mx-auto flex-grow w-full">
+            </motion.header>
+            <main
+              className={`max-w-4xl mx-auto flex-grow w-full px-5 sm:px-6 md:px-8 transition-[padding] duration-300 ease-out ${
+                isImmersiveReading && readingChromeVisible
+                  ? 'pt-24 pb-44 max-md:pb-[min(18rem,calc(env(safe-area-inset-bottom)+15rem))]'
+                  : isImmersiveReading && !readingChromeVisible
+                    ? 'pt-[max(0.5rem,env(safe-area-inset-top))] pb-24'
+                    : 'pt-24 pb-20'
+              }`}
+            >
               <AnimatePresence mode="wait">
                 {!currentStory ? (
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -242,69 +293,40 @@ export default function App() {
                     </div>
                   </motion.div>
                 ) : (
-                  <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-[700px] mx-auto text-center">
-                    <header className={`mb-16 border-b pb-12 font-sans ${isDarkMode ? 'border-white/10' : 'border-black/5'}`}>
-                      <h2 className={`text-4xl font-serif font-black italic mb-8 leading-tight ${isDarkMode ? 'text-white' : 'text-black'}`}>{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-xl opacity-60 mt-4 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
+                  <motion.div
+                    key="content"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="max-w-[700px] mx-auto text-center touch-manipulation"
+                    onClick={onReadingContentClick}
+                  >
+                    <header className={`mb-12 max-md:mb-10 border-b pb-10 max-md:pb-8 font-sans ${isDarkMode ? 'border-white/10' : 'border-black/5'}`}>
+                      <h2 className={`text-3xl max-md:text-[1.65rem] font-serif font-black italic mb-6 max-md:mb-5 leading-snug max-md:leading-snug ${isDarkMode ? 'text-white' : 'text-black'}`}>{currentStory.title}{currentStory.currentChapterTitle && (<span className="block text-lg max-md:text-base opacity-60 mt-3 max-md:mt-2 font-serif font-medium">— {currentStory.currentChapterTitle}</span>)}</h2>
                       <div className={`text-[11px] uppercase tracking-[0.2em] opacity-50 dark:opacity-70 space-y-1 font-black ${isDarkMode ? 'text-slate-300' : 'text-black'}`}><p>作者: {currentStory.author}</p><p>字数: {reading ? '...' : (currentStory.wordCount?.toLocaleString() || '...')}</p></div>
                       <a href={currentStory.sourceLink} target="_blank" rel="noopener noreferrer" className={`inline-block mt-8 text-[13px] font-black tracking-[0.2em] underline underline-offset-8 decoration-1 transition-opacity ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-[#607d8b] hover:text-[#455a64]'}`}>原链接 SOURCE →</a>
                     </header>
                     {reading ? (<div className={`py-20 text-center opacity-20 tracking-widest text-xs uppercase animate-pulse ${isDarkMode ? 'text-white' : 'text-black'}`}>Loading Content...</div>) : (
                       <>
-                        <article style={{ fontSize: `${fontSize}px`, lineHeight: '1.9' }} className={`text-justify mb-24 font-serif ${isDarkMode ? 'text-slate-200' : 'text-[#333]'}`}>
-                          {(() => {
-                            const raw = currentStory.content || '';
-                            const cleanRaw = raw.replace(/\r\n/g, '\n');
-                            const blockRegex = /(\[\s*quote\s*\][\s\S]*?\[\s*\/quote\s*\]|\[\s*box\s*\][\s\S]*?\[\s*\/box\s*\]|\[\s*bubble:[LR]\s*\][\s\S]*?\[\s*\/bubble\s*\]|\[\s*bvid:[a-zA-Z0-9]+\s*\]|\[\s*youtube:[a-zA-Z0-9_-]+\s*\]|---)/g;
-                            const parts = cleanRaw.split(blockRegex);
-                            return parts.map((part, idx) => {
-                              if (!part) return null;
-                              const trimmedPart = part.trim();
-                              if (/\[\s*quote\s*\]/.test(part)) {
-                                const inner = part.replace(/\[\s*\/?quote\s*\]/g, '').trim();
-                                return (<blockquote key={idx} className={`my-8 pl-5 border-l-4 italic py-6 rounded-r-xl ${isDarkMode ? 'border-slate-600 bg-white/5 text-slate-400' : 'border-slate-300 bg-slate-100/30 text-slate-500'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</blockquote>);
-                              }
-                              if (/\[\s*box\s*\]/.test(part)) {
-                                const inner = part.replace(/\[\s*\/?box\s*\]/g, '').trim();
-                                return (<div key={idx} className={`my-10 p-8 border rounded-2xl text-sm leading-relaxed shadow-sm ${isDarkMode ? 'bg-[#1a1a1a] border-white/10 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`}>{inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-2 last:mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-4" />)}</div>);
-                              }
-                              if (/\[\s*bubble:/.test(part)) {
-                                const isRight = part.includes(':R');
-                                const inner = part.replace(/\[\s*bubble:[LR]\s*\]/g, '').replace(/\[\s*\/bubble\s*\]/g, '').trim();
-                                return (
-                                  <div key={idx} className={`flex ${isRight ? 'justify-end' : 'justify-start'} -my-4 leading-none relative z-10`}>
-                                    <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-[14px] shadow-sm tracking-tight leading-normal my-1 ${isRight ? 'bg-[#607d8b] text-white rounded-tr-none' : (isDarkMode ? 'bg-white/10 text-slate-100' : 'bg-slate-200 text-slate-800')}`}>
-                                      {inner.split('\n').map((l, i) => l.trim() ? <p key={i} className="mb-0" dangerouslySetInnerHTML={{ __html: applyInlineStyles(l) }} /> : <div key={i} className="h-1" />)}
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              if (/\[\s*bvid:/.test(part)) {
-                                const bvid = part.match(/bvid:\s*([a-zA-Z0-9]+)/)?.[1];
-                                return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0&autoplay=0`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
-                              }
-                              if (/\[\s*youtube:/.test(part)) {
-                                const ytid = part.match(/youtube:\s*([a-zA-Z0-9_-]+)/)?.[1];
-                                return (<div key={idx} className="my-10 aspect-video w-full overflow-hidden rounded-2xl shadow-2xl bg-black ring-1 ring-white/10"><iframe src={`https://www.youtube.com/embed/${ytid}`} className="w-full h-full border-none" allowFullScreen loading="lazy" /></div>);
-                              }
-                              if (trimmedPart === '---') return <hr key={idx} className={`my-16 border-t ${isDarkMode ? 'border-white/10' : 'border-black/10'}`} />;
-                              return part.split('\n').map((line, lIdx) => {
-                                if (line === '') return <div key={lIdx} className="h-8" />;
-                                return <p key={`${idx}-${lIdx}`} className="mb-5 min-h-[1.5em]" dangerouslySetInnerHTML={{ __html: applyInlineStyles(line) }} />;
-                              });
-                            });
-                          })()}
+                        <article
+                          style={{
+                            fontSize: `${fontSize}px`,
+                            lineHeight: isMobileViewport ? 2.05 : 1.9,
+                          }}
+                          className={`text-justify mb-20 max-md:mb-14 font-serif max-md:tracking-[0.02em] ${isDarkMode ? 'text-slate-200' : 'text-[#333]'}`}
+                        >
+                          {renderStoryArticleBody(currentStory.content || '', isDarkMode)}
                         </article>
 
                         {currentStory.chapters && currentStory.chapters.length > 1 && (
-                          <div className={`flex justify-between items-center py-12 border-t mt-16 gap-4 ${isDarkMode ? 'border-white/10' : 'border-black/5'}`}>
+                          <div className={`${isImmersiveReading ? 'hidden md:flex' : 'flex'} justify-between items-center py-12 border-t mt-16 gap-4 ${isDarkMode ? 'border-white/10' : 'border-black/5'}`}>
                             {(() => {
-                              const chapters = currentStory.chapters;
+                              const chapters = currentStory.chapters!;
                               const currentIndex = chapters.findIndex(c => c.title === currentStory.currentChapterTitle);
                               return (
                                 <>
                                   <div className="flex-1 text-left">
                                     {currentIndex > 0 && (
-                                      <button onClick={() => loadFullStory(currentStory, chapters[currentIndex - 1].fileName, chapters[currentIndex - 1].title)} className={`group flex flex-col gap-2 transition-all text-left ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}>
+                                      <button type="button" data-no-chrome-toggle onClick={() => loadFullStory(currentStory, chapters[currentIndex - 1].fileName, chapters[currentIndex - 1].title)} className={`group flex min-h-[48px] flex-col gap-2 transition-all text-left ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}>
                                         <span className="text-[9px] uppercase tracking-[0.2em] font-sans font-black flex items-center gap-1"><ChevronLeft size={12} /> Previous / 上一章</span>
                                         <span className="text-sm font-serif italic font-bold">{chapters[currentIndex - 1].title}</span>
                                       </button>
@@ -312,7 +334,7 @@ export default function App() {
                                   </div>
                                   <div className="flex-1 text-right">
                                     {currentIndex < chapters.length - 1 && (
-                                      <button onClick={() => loadFullStory(currentStory, chapters[currentIndex + 1].fileName, chapters[currentIndex + 1].title)} className={`group flex flex-col items-end gap-2 transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}>
+                                      <button type="button" data-no-chrome-toggle onClick={() => loadFullStory(currentStory, chapters[currentIndex + 1].fileName, chapters[currentIndex + 1].title)} className={`group flex min-h-[48px] flex-col items-end gap-2 transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-black/30 hover:text-black'}`}>
                                         <span className="text-[9px] uppercase tracking-[0.2em] font-sans font-black flex items-center gap-1">Next / 下一章 <ChevronLeft size={12} className="rotate-180" /></span>
                                         <span className="text-sm font-serif italic font-bold">{chapters[currentIndex + 1].title}</span>
                                       </button>
@@ -325,10 +347,63 @@ export default function App() {
                         )}
                       </>
                     )}
-                    <div className={`flex flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/20' : 'border-black/10'}`}>
-                       <p className={`text-sm font-black tracking-widest ${isDarkMode ? 'text-white/60' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
-                       <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] font-black tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/30 hover:bg-white hover:text-black text-white' : 'border-black/10 hover:bg-black hover:text-white text-black'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
+                    <div className={`${isImmersiveReading ? 'hidden md:flex' : 'flex'} flex-col sm:flex-row items-center justify-between gap-6 py-12 border-t border-dashed ${isDarkMode ? 'border-white/20' : 'border-black/10'}`}>
+                      <p className={`text-center text-sm max-md:text-xs font-black tracking-widest max-md:leading-relaxed ${isDarkMode ? 'text-white/60' : 'text-black/40'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
+                      <button type="button" data-no-chrome-toggle onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className={`flex min-h-[48px] items-center justify-center gap-2 px-8 max-md:w-full max-md:max-w-sm rounded-full text-[10px] font-black tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/30 hover:bg-white hover:text-black text-white' : 'border-black/10 hover:bg-black hover:text-white text-black'}`}>Top / 回到顶部 <ChevronUp size={14} /></button>
                     </div>
+                    {isImmersiveReading && !reading && (
+                      <motion.div
+                        className="fixed inset-x-0 bottom-0 z-40 md:hidden"
+                        initial={false}
+                        animate={{ y: readingChromeVisible ? 0 : '115%' }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 36, mass: 0.9 }}
+                        style={{ pointerEvents: readingChromeVisible ? 'auto' : 'none' }}
+                      >
+                        <div
+                          className={`mx-auto max-w-[700px] space-y-3 border-t px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom))] shadow-[0_-16px_48px_-12px_rgba(0,0,0,0.18)] dark:shadow-[0_-16px_48px_-12px_rgba(0,0,0,0.45)] ${isDarkMode ? 'border-white/15 bg-[#0a0a0a]/92 backdrop-blur-xl' : 'border-black/10 bg-[#f5f5f5]/92 backdrop-blur-xl'}`}
+                          data-no-chrome-toggle
+                        >
+                          {currentStory.chapters && currentStory.chapters.length > 1 && (() => {
+                            const chapters = currentStory.chapters;
+                            const currentIndex = chapters.findIndex(c => c.title === currentStory.currentChapterTitle);
+                            return (
+                              <div className="flex flex-col gap-2.5">
+                                {currentIndex > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => loadFullStory(currentStory, chapters[currentIndex - 1].fileName, chapters[currentIndex - 1].title)}
+                                    className={`min-h-[54px] w-full rounded-xl border px-4 py-3 text-left transition-colors active:scale-[0.99] ${isDarkMode ? 'border-white/15 bg-white/5 hover:bg-white/10' : 'border-black/10 bg-white/80 hover:bg-white'}`}
+                                  >
+                                    <span className="text-[10px] font-sans font-black uppercase tracking-widest opacity-50 flex items-center gap-1"><ChevronLeft size={14} /> 上一章</span>
+                                    <span className={`mt-1 block text-base font-serif font-bold leading-snug ${isDarkMode ? 'text-white' : 'text-black'}`}>{chapters[currentIndex - 1].title}</span>
+                                  </button>
+                                )}
+                                {currentIndex < chapters.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => loadFullStory(currentStory, chapters[currentIndex + 1].fileName, chapters[currentIndex + 1].title)}
+                                    className={`min-h-[54px] w-full rounded-xl border px-4 py-3 text-left transition-colors active:scale-[0.99] ${isDarkMode ? 'border-white/15 bg-white/5 hover:bg-white/10' : 'border-black/10 bg-white/80 hover:bg-white'}`}
+                                  >
+                                    <span className="text-[10px] font-sans font-black uppercase tracking-widest opacity-50 flex items-center gap-1">下一章 <ChevronLeft size={14} className="rotate-180" /></span>
+                                    <span className={`mt-1 block text-base font-serif font-bold leading-snug ${isDarkMode ? 'text-white' : 'text-black'}`}>{chapters[currentIndex + 1].title}</span>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          <div className={`flex flex-col gap-3 border-t border-dashed pt-3 ${isDarkMode ? 'border-white/15' : 'border-black/10'}`}>
+                            <p className={`text-center text-xs font-black tracking-widest leading-relaxed ${isDarkMode ? 'text-white/55' : 'text-black/45'}`}>如果喜欢这篇文章，请务必去支持一下原作者。</p>
+                            <button
+                              type="button"
+                              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                              className={`flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl text-[11px] font-black tracking-[0.2em] uppercase transition-all border ${isDarkMode ? 'border-white/25 bg-white/5 text-white hover:bg-white hover:text-black' : 'border-black/15 bg-white text-black hover:bg-black hover:text-white'}`}
+                            >
+                              Top / 回到顶部 <ChevronUp size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
