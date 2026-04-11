@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Octokit } from "octokit";
-import { 
-  ChevronLeft, Key, Edit3, List, Bold, Italic, Quote, MessageSquare, 
-  Minus, Video, PlusCircle, Square, Trash2, RotateCw, X // 🌟 导入 X 图标
-} from 'lucide-react';
+import { ChevronLeft, Key, Edit3, List, PlusCircle, Trash2, RotateCw, X } from 'lucide-react';
+import LiveContentEditor from './LiveContentEditor';
 
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
@@ -29,7 +27,9 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [readerDark, setReaderDark] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [previewFontSize] = useState(18);
 
   // --- 获取列表逻辑 ---
   const fetchStories = async () => {
@@ -45,6 +45,29 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   };
 
   useEffect(() => { fetchStories(); }, []);
+
+  useEffect(() => {
+    const readTheme = () => {
+      const s = localStorage.getItem('theme');
+      if (s === 'dark') setReaderDark(true);
+      else if (s === 'light') setReaderDark(false);
+      else setReaderDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    };
+    readTheme();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'theme' || e.key === null) readTheme();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onMq = () => setIsMobileViewport(mq.matches);
+    onMq();
+    mq.addEventListener('change', onMq);
+    return () => mq.removeEventListener('change', onMq);
+  }, []);
 
   // --- 🌟 新增：删除单个分P（章节）逻辑 ---
   const handleDeleteChapter = async (story: any, fileName: string, cTitle: string) => {
@@ -163,22 +186,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       setIsPublishing(false);
       setStatus('');
     }
-  };
-
-  // --- 插入标签 ---
-  const insertTag = (e: React.MouseEvent, openTag: string, closeTag: string = '') => {
-    e.preventDefault();
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const savedScrollTop = textarea.scrollTop;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-    const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box') || openTag.includes('youtube');
-    let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
-    const newContent = content.substring(0, start) + textToInsert + content.substring(end);
-    setContent(newContent);
-    setTimeout(() => { textarea.focus(); textarea.scrollTop = savedScrollTop; }, 10);
   };
 
   // --- 续传、编辑、发布逻辑 ---
@@ -306,45 +313,68 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             ))}
         </div>
       ) : (
-        <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-black font-serif italic">{editingId ? 'Edit Content' : 'Post New Story'}</h2>
-            <div className="bg-white dark:bg-black/20 p-8 rounded-3xl border dark:border-white/10 space-y-6 shadow-2xl">
-               <div className="space-y-1">
-                  <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Global Title</label>
-                  <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-transparent border-b-2 border-slate-200 dark:border-slate-800 py-2 text-2xl font-black focus:border-blue-500 outline-none transition-all" placeholder="总标题..." />
-               </div>
-               <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Author</label>
-                    <input value={author} onChange={e => setAuthor(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Chapter Title</label>
-                    <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 text-blue-600 font-bold" placeholder="章节名（如：第 1 节）" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Source Link</label>
-                    <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs" placeholder="https://..." />
-                  </div>
-               </div>
-               <div className="space-y-3">
-                  <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Content Editor</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[ 
-                      ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], 
-                      ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], 
-                      ['---','',Minus], ['[bvid:',']',Video], ['[youtube:', ']', Video] 
-                    ].map(([ot,ct,Icon]:any, i) => (
-                      <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
-                    ))}
-                  </div>
-                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此粘贴你的内容..." />
-               </div>
-               {status && <div className="text-xs font-bold text-blue-500 animate-pulse">{status}</div>}
-               <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 transition-all disabled:bg-slate-400">
-                 {isPublishing ? 'PUBLISHING...' : 'POST TO ARCHIVE'}
-               </button>
+        <div className="mx-auto max-w-[1200px] space-y-6 animate-in fade-in duration-500">
+          <h2 className="text-2xl font-black font-serif italic">{editingId ? 'Edit Content' : 'Post New Story'}</h2>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
+            <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-black/20 lg:sticky lg:top-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest opacity-30">Global Title</label>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full border-b-2 border-slate-200 bg-transparent py-2 text-2xl font-black outline-none transition-all focus:border-blue-500 dark:border-slate-800"
+                  placeholder="总标题..."
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest opacity-30">Author</label>
+                  <input
+                    value={author}
+                    onChange={(e) => setAuthor(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100 p-3 outline-none dark:bg-white/5"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Chapter Title</label>
+                  <input
+                    value={chapterTitle}
+                    onChange={(e) => setChapterTitle(e.target.value)}
+                    className="w-full rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 font-bold text-blue-600 outline-none dark:bg-blue-500/10"
+                    placeholder="章节名（如：第 1 节）"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest opacity-30">Source Link</label>
+                  <input
+                    value={sourceLink}
+                    onChange={(e) => setSourceLink(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100 p-3 text-xs outline-none dark:bg-white/5"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+              {status && <div className="text-xs font-bold text-blue-500 animate-pulse">{status}</div>}
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={isPublishing}
+                className="w-full rounded-2xl bg-blue-600 py-4 text-lg font-black tracking-widest text-white shadow-xl transition-all hover:bg-blue-700 disabled:bg-slate-400"
+              >
+                {isPublishing ? 'PUBLISHING...' : 'POST TO ARCHIVE'}
+              </button>
             </div>
+            <div className="min-w-0 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest opacity-40">正文（点击段落或引用块即可编辑；失焦自动保存到正文源）</label>
+              <LiveContentEditor
+                content={content}
+                onChange={setContent}
+                readerDark={readerDark}
+                isMobileViewport={isMobileViewport}
+                fontSize={previewFontSize}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
