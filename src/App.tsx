@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import Admin from './Admin';
 import { Analytics } from '@vercel/analytics/react'; 
 
