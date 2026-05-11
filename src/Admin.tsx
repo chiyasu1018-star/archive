@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Octokit } from "octokit";
 import { ChevronLeft, Key, Edit3, List, PlusCircle, Trash2, RotateCw, X } from 'lucide-react';
-import LiveContentEditor from './LiveContentEditor';
 
 const REPO_OWNER = "chiyasu1018-star"; 
 const REPO_NAME = "archive";      
@@ -15,7 +14,6 @@ const encodeContent = (str: string) => {
 };
 
 const decodeContent = (base64: string) => {
-  // 必须先移除换行符，否则 atob 会报错
   const cleanBase64 = base64.replace(/\s/g, '');
   return decodeURIComponent(escape(atob(cleanBase64)));
 };
@@ -26,7 +24,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [stories, setStories] = useState<any[]>([]); 
   const [isListLoading, setIsListLoading] = useState(false);
 
-  // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
@@ -41,7 +38,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [previewFontSize] = useState(18);
 
-  // --- 获取列表 ---
   const fetchStories = async () => {
     setIsListLoading(true);
     try {
@@ -58,7 +54,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchStories(); }, []);
 
-  // --- 主题与环境监听 ---
   useEffect(() => {
     const readTheme = () => {
       const s = localStorage.getItem('theme');
@@ -78,7 +73,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
-  // --- 获取 GitHub 文件的通用逻辑 ---
   const getGHFile = async (octokit: Octokit, path: string) => {
     const { data } = await octokit.rest.repos.getContent({
       owner: REPO_OWNER, repo: REPO_NAME, path,
@@ -88,69 +82,45 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     throw new Error("Target is not a file");
   };
 
-  // --- 删除指定章节 ---
   const handleDeleteChapter = async (story: any, fileName: string, cTitle: string) => {
     if (!token) return alert("请先输入 Token");
     if (!window.confirm(`确定删除章节：${cTitle} 吗？`)) return;
-
-    setIsPublishing(true);
-    setStatus('正在同步 GitHub...');
-
+    setIsPublishing(true); setStatus('正在同步 GitHub...');
     try {
       const octokit = new Octokit({ auth: token });
-      
-      // 1. 删除 TXT 文件
       const fileInfo = await getGHFile(octokit, `public/stories/${fileName}`);
       await octokit.rest.repos.deleteFile({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-        message: `Delete chapter: ${cTitle}`,
-        sha: fileInfo.sha, branch: BRANCH
+        message: `Delete chapter: ${cTitle}`, sha: fileInfo.sha, branch: BRANCH
       });
-
-      // 2. 更新 index.json
       const idxF = await getGHFile(octokit, `public/stories/index.json`);
       let indexData = JSON.parse(decodeContent(idxF.content));
-      
       const sIdx = indexData.findIndex((s: any) => s.id === story.id);
       if (sIdx !== -1) {
         if (indexData[sIdx].chapters) {
           indexData[sIdx].chapters = indexData[sIdx].chapters.filter((c: any) => c.fileName !== fileName);
-          if (indexData[sIdx].chapters.length === 0) {
-            indexData = indexData.filter((s: any) => s.id !== story.id);
-          }
+          if (indexData[sIdx].chapters.length === 0) indexData = indexData.filter((s: any) => s.id !== story.id);
         } else {
           indexData = indexData.filter((s: any) => s.id !== story.id);
         }
       }
-
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
-        sha: idxF.sha,
-        message: `Update index: remove ${cTitle}`,
-        content: encodeContent(JSON.stringify(indexData, null, 2)),
-        branch: BRANCH
+        sha: idxF.sha, message: `Update index: remove ${cTitle}`,
+        content: encodeContent(JSON.stringify(indexData, null, 2)), branch: BRANCH
       });
-
       setStatus('删除成功');
       setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
-    } catch (err: any) {
-      alert(`操作失败: ${err.message}`);
-      setIsPublishing(false);
-    }
+    } catch (err: any) { alert(`操作失败: ${err.message}`); setIsPublishing(false); }
   };
 
-  // --- 删除整个故事 ---
   const handleDelete = async (story: any) => {
     if (!token) return alert("请先输入 Token");
     if (!window.confirm(`确定彻底删除《${story.title}》吗？`)) return;
-
-    setIsPublishing(true);
-    setStatus('清理文件中...');
-
+    setIsPublishing(true); setStatus('清理文件中...');
     try {
       const octokit = new Octokit({ auth: token });
       const filesToDelete = story.chapters ? story.chapters.map((c: any) => c.fileName) : [story.fileName];
-
       for (const fName of filesToDelete) {
         try {
           const f = await getGHFile(octokit, `public/stories/${fName}`);
@@ -160,26 +130,19 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           });
         } catch (e) { console.warn("Skip:", fName); }
       }
-
       const idxF = await getGHFile(octokit, `public/stories/index.json`);
       let indexData = JSON.parse(decodeContent(idxF.content));
       const newIndex = indexData.filter((s: any) => s.id !== story.id);
-
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         sha: idxF.sha, message: `Delete story: ${story.title}`,
         content: encodeContent(JSON.stringify(newIndex, null, 2)), branch: BRANCH
       });
-
       setStatus('已全量删除');
       setTimeout(() => { fetchStories(); setStatus(''); setIsPublishing(false); }, 1000);
-    } catch (err: any) {
-      alert(`删除失败: ${err.message}`);
-      setIsPublishing(false);
-    }
+    } catch (err: any) { alert(`删除失败: ${err.message}`); setIsPublishing(false); }
   };
 
-  // --- 编辑/续传逻辑 ---
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     if (!token) return alert("操作需要 Token");
     setIsPublishing(true); setStatus('载入中...');
@@ -187,17 +150,9 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const octokit = new Octokit({ auth: token });
       const file = await getGHFile(octokit, `public/stories/${fileName}`);
       const text = decodeContent(file.content);
-      
-      setEditingId(story.id);
-      setEditingFileName(fileName);
-      setEditingFileSha(file.sha);
-      setTitle(story.title);
-      setAuthor(story.author);
-      setSourceLink(story.sourceLink || '');
-      setChapterTitle(cTitle);
-      setContent(text);
-      setView('create');
-      setStatus('加载成功');
+      setEditingId(story.id); setEditingFileName(fileName); setEditingFileSha(file.sha);
+      setTitle(story.title); setAuthor(story.author); setSourceLink(story.sourceLink || '');
+      setChapterTitle(cTitle); setContent(text); setView('create'); setStatus('加载成功');
     } catch (err: any) { alert("读取失败"); }
     finally { setIsPublishing(false); }
   };
@@ -209,7 +164,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setContent(''); setView('create');
   };
 
-  // --- 发布/保存 ---
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("必填项不能为空");
     setIsPublishing(true); setStatus('同步至 GitHub...');
@@ -217,20 +171,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       const octokit = new Octokit({ auth: token });
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}_${Date.now()}.txt`;
-
-      // 1. 保存正文
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
-        message: `Update content: ${title}`, 
-        content: encodeContent(content),
+        message: `Update content: ${title}`, content: encodeContent(content),
         sha: editingFileSha || undefined, branch: BRANCH
       });
-
-      // 2. 更新 Index
       const idxF = await getGHFile(octokit, `public/stories/index.json`);
       let indexData = JSON.parse(decodeContent(idxF.content));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
-
       if (idx === -1) {
         const newEntry: any = { id: storyId, title, author, sourceLink };
         if (chapterTitle) newEntry.chapters = [{ title: chapterTitle, fileName }];
@@ -253,23 +201,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           }
         }
       }
-
       await octokit.rest.repos.createOrUpdateFileContents({
         owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/index.json`,
         sha: idxF.sha, message: `Update Index`,
         content: encodeContent(JSON.stringify(indexData, null, 2)), branch: BRANCH
       });
-
       setStatus('发布成功！');
-      setTimeout(() => {
-        fetchStories();
-        setView('list');
-        resetForm();
-      }, 1000);
-    } catch (err: any) { 
-      setStatus(`错误: ${err.message}`); 
-      setIsPublishing(false); 
-    }
+      setTimeout(() => { fetchStories(); setView('list'); resetForm(); }, 1000);
+    } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
   };
 
   const resetForm = () => {
@@ -303,9 +242,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                  <RotateCw size={20} className="opacity-40" />
                </button>
             </div>
-            
             {status && <div className="text-xs font-bold text-blue-500 mb-4 animate-pulse">{status}</div>}
-            
             {isListLoading ? <div className="py-20 text-center opacity-20 uppercase tracking-[0.3em]">Loading Index...</div> : stories.map(s => (
                 <div key={s.id} className="p-6 border dark:border-white/10 rounded-2xl bg-white dark:bg-black/20 shadow-sm mb-4">
                     <div className="flex justify-between items-start mb-4">
@@ -361,12 +298,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             </div>
             <div className="min-w-0 space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest opacity-40">正文编辑</label>
-              <LiveContentEditor
-                content={content}
-                onChange={setContent}
-                readerDark={readerDark}
-                isMobileViewport={isMobileViewport}
-                fontSize={previewFontSize}
+              {/* 这里把缺失的 LiveContentEditor 替换成了标准的 textarea */}
+              <textarea 
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                className={`w-full min-h-[600px] p-6 rounded-3xl border-none outline-none font-serif shadow-inner ${readerDark ? 'bg-zinc-900 text-zinc-300' : 'bg-white text-zinc-800'}`}
+                style={{ fontSize: `${previewFontSize}px`, lineHeight: '1.8' }}
+                placeholder="在此输入正文内容..."
               />
             </div>
           </div>
