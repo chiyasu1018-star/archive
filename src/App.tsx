@@ -99,7 +99,18 @@ export default function App() {
       })
       .catch(() => setLoading(false));
   }, []);
-
+// 专门为 iPad 准备的进入方式：在网址后面加 #admin 刷新即可进入
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#admin') {
+        setIsAdmin(true);
+      }
+    };
+    handleHashChange(); // 页面加载时检查
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+  
   const totalPages = Math.ceil(stories.length / ITEMS_PER_PAGE);
   const currentItems = stories.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
