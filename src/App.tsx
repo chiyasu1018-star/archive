@@ -50,33 +50,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const API_BASE = '/stories/';
 
-  const fetchRealTimestamps = async (baseStories: Story[]) => {
-    try {
-      const cached = sessionStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_EXPIRY) return data;
-      }
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories&per_page=100`);
-      if (!response.ok) throw new Error("API Limit");
-      const updatedStories = await Promise.all(baseStories.map(async (story) => {
-        const filesToTrack = story.chapters ? story.chapters.map(c => c.fileName) : [story.fileName];
-        let latestTime = 0; let latestChapterName = "";
-        for (const file of filesToTrack) {
-          if (!file) continue;
-          const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=stories/${file}&per_page=1`);
-          const data = await res.json();
-          if (data && data.length > 0) {
-            const time = new Date(data[0].commit.committer.date).getTime();
-            if (time > latestTime) { latestTime = time; latestChapterName = story.chapters?.find(c => c.fileName === file)?.title || ""; }
-          }
-        }
-        return { ...story, lastGitUpdate: latestTime || new Date(story.date).getTime(), latestChapterTitle: latestChapterName };
-      }));
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: updatedStories, timestamp: Date.now() }));
-      return updatedStories;
-    } catch (error) { return baseStories; }
-  };
+
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -88,16 +62,19 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
+// 替换成这个精简版
   useEffect(() => {
     fetch(`${LIVE_INDEX_URL}?v=${Date.now()}`)
       .then(res => res.json())
-      .then(async (data) => { 
-        const enrichedData = await fetchRealTimestamps(data);
-        const sorted = enrichedData.sort((a: Story, b: Story) => (b.lastGitUpdate || 0) - (a.lastGitUpdate || 0));
-        setStories(sorted); 
+      .then((data) => { 
+        // 关键：直接使用数据，不再进行复杂的抓取和排序
+        // 这样会直接遵循 index.json 里的顺序（新发布的在最前）
+        setStories(data || []); 
         setTimeout(() => setLoading(false), 800); 
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
 // 专门为 iPad 准备的进入方式：在网址后面加 #admin 刷新即可进入
   useEffect(() => {
@@ -220,12 +197,10 @@ export default function App() {
                     <header className="text-center py-12"><h1 className={`text-3xl font-black tracking-[0.2em] mb-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>花汪档案馆</h1></header>
                     <section className="max-w-[700px] mx-auto">
                       {currentItems.map(s => {
-                        const isNew = s.lastGitUpdate && (Date.now() - s.lastGitUpdate < 48 * 60 * 60 * 1000);
                         return (
                           <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                             <div className="flex justify-between items-baseline w-full">
                               <div className="flex items-baseline gap-3"><h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                              {isNew && (<div className="flex items-center gap-2 pr-2"><span className="text-[8px] font-black tracking-widest opacity-30 uppercase font-sans">New</span><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span></div>)}
                             </div>
                             <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
                           </motion.button>
