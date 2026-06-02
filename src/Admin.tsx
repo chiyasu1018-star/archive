@@ -17,6 +17,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [stories, setStories] = useState<any[]>([]); 
   const [isListLoading, setIsListLoading] = useState(false);
 
+  // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
   const [editingFileSha, setEditingFileSha] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [author, setAuthor] = useState('');
   const [chapterTitle, setChapterTitle] = useState('');
   const [sourceLink, setSourceLink] = useState('');
+  const [isR18, setIsR18] = useState(false); // 🌟 新增：R18 分级状态
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
@@ -101,38 +103,24 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     } catch (err) { setIsPublishing(false); }
   };
 
-  // --- 🌟 改进后的插入标签函数：解决跳转到最下面的问题 ---
   const insertTag = (e: React.MouseEvent, openTag: string, closeTag: string = '') => {
     e.preventDefault();
     const textarea = textareaRef.current;
     if (!textarea) return;
-
-    // 1. 记录当前状态
     const savedScrollTop = textarea.scrollTop;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = content.substring(start, end);
-
-    // 2. 准备插入内容
     const isBlock = openTag.includes('quote') || openTag.includes('bubble') || openTag.includes('box') || openTag.includes('youtube');
     let textToInsert = isBlock ? `\n${openTag}\n${selectedText || '内容'}\n${closeTag}\n` : `${openTag}${selectedText}${closeTag}`;
-
-    // 3. 计算插入后的光标位置 (让光标停在插入内容的后面)
     const newCursorPos = start + textToInsert.length;
-
-    // 4. 更新内容
     const newContent = content.substring(0, start) + textToInsert + content.substring(end);
     setContent(newContent);
-
-    // 5. 关键：在渲染后的宏任务中恢复状态
     setTimeout(() => {
-      const currentTextarea = textareaRef.current;
-      if (currentTextarea) {
-        currentTextarea.focus();
-        // 核心：手动指定光标位置，防止它跳到文章末尾
-        currentTextarea.setSelectionRange(newCursorPos, newCursorPos);
-        // 核心：手动恢复滚动条高度
-        currentTextarea.scrollTop = savedScrollTop;
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        textareaRef.current.scrollTop = savedScrollTop;
       }
     }, 0);
   };
@@ -147,6 +135,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       setEditingId(story.id); setEditingFileName(fileName); // @ts-ignore
       setEditingFileSha(f.sha); setTitle(story.title); setAuthor(story.author);
       setSourceLink(story.sourceLink || ''); setChapterTitle(cTitle); setContent(text);
+      setIsR18(story.isR18 || false); // 🌟 加载文章的 R18 状态
       setView('create'); setStatus('加载成功');
     } catch (err) { alert("失败"); } finally { setIsPublishing(false); }
   };
@@ -168,13 +157,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       let indexData = JSON.parse(decodeURIComponent(escape(atob(idxF.content))));
       const idx = indexData.findIndex((s: any) => s.id === storyId);
       if (idx === -1) {
-        const newS: any = { id: storyId, title, author, sourceLink, date: new Date().toISOString() };
+        // 🌟 新建文章时存入 isR18
+        const newS: any = { id: storyId, title, author, sourceLink, isR18, date: new Date().toISOString() };
         if (chapterTitle) newS.chapters = [{ title: chapterTitle, fileName }];
         else newS.fileName = fileName;
         indexData = [newS, ...indexData];
       } else {
         const s = indexData[idx];
         s.title = title; s.author = author; s.sourceLink = sourceLink;
+        s.isR18 = isR18; // 🌟 更新已存在的 R18 状态
         if (editingFileName && s.chapters) {
           const ci = s.chapters.findIndex((c: any) => c.fileName === editingFileName);
           if (ci !== -1) s.chapters[ci].title = chapterTitle;
@@ -187,8 +178,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         sha: idxF.sha, message: `Index`, content: btoa(unescape(encodeURIComponent(JSON.stringify(indexData, null, 2)))), branch: BRANCH
       });
       setStatus('成功！');
-      setTimeout(() => { fetchStories(); setView('list'); setStatus(''); setIsPublishing(false); }, 1000);
+      setTimeout(() => { fetchStories(); setView('list'); setStatus(''); resetForm(); setIsPublishing(false); }, 1000);
     } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
+  };
+
+  const resetForm = () => {
+    setEditingId(null); setEditingFileName(null); setEditingFileSha(null);
+    setTitle(''); setAuthor(''); setChapterTitle(''); setSourceLink('');
+    setIsR18(false); setContent(''); setStatus(''); 
   };
 
   return (
@@ -222,7 +219,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     <div className="flex justify-between items-start mb-4">
                         <div><span className="font-bold text-xl block">{s.title}</span><span className="text-[10px] opacity-40 uppercase font-mono">{s.author}</span></div>
                         <div className="flex gap-2">
-                           <button onClick={() => { setEditingId(s.id); setTitle(s.title); setAuthor(s.author); setSourceLink(s.sourceLink || ''); setView('create'); }} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase transition-all hover:bg-blue-700">续传/分P</button>
+                           <button onClick={() => { setEditingId(s.id); setTitle(s.title); setAuthor(s.author); setSourceLink(s.sourceLink || ''); setView('create'); setIsR18(s.isR18 || false); }} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-full text-[10px] font-bold uppercase transition-all hover:bg-blue-700">续传/分P</button>
                            <button onClick={() => handleDelete(s)} disabled={isPublishing} className="p-2 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all disabled:opacity-30"><Trash2 size={16}/></button>
                         </div>
                     </div>
@@ -259,6 +256,25 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     <input value={chapterTitle} onChange={e => setChapterTitle(e.target.value)} className="w-full bg-blue-500/5 dark:bg-blue-500/10 p-3 rounded-xl outline-none border border-blue-500/20 text-blue-600 font-bold" placeholder="章节名（如：第 1 节）" />
                   </div>
                </div>
+               {/* 🌟 插入 R18 开关按钮 */}
+               <div className="flex items-center gap-4 pt-2">
+                 <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Rating / 分级</label>
+                 <button 
+                   type="button"
+                   onClick={() => setIsR18(!isR18)}
+                   className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${
+                     isR18 
+                       ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20' 
+                       : 'bg-transparent border-slate-300 dark:border-white/10 opacity-40 hover:opacity-100'
+                   }`}
+                 >
+                   {isR18 ? 'R18 RESTRICTED' : 'General / 全年龄'}
+                 </button>
+               </div>
+               <div className="space-y-1">
+                  <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Source Link</label>
+                  <input value={sourceLink} onChange={e => setSourceLink(e.target.value)} className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs" placeholder="https://..." />
+               </div>
                <div className="space-y-3">
                   <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Content Editor</label>
                   <div className="flex flex-wrap gap-2">
@@ -270,13 +286,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                       <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
                     ))}
                   </div>
-                  <textarea 
-                    ref={textareaRef} 
-                    value={content} 
-                    onChange={e => setContent(e.target.value)} 
-                    className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" 
-                    placeholder="在此输入内容..." 
-                  />
+                  <textarea ref={textareaRef} value={content} onChange={e => setContent(e.target.value)} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="在此输入内容..." />
                </div>
                {status && <div className="text-xs font-bold text-blue-500 animate-pulse">{status}</div>}
                <button onClick={handlePublish} disabled={isPublishing} className="w-full py-5 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-widest shadow-xl hover:bg-blue-700 transition-all disabled:bg-slate-400">
