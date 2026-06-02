@@ -204,7 +204,7 @@ export default function App() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
                   <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className={`max-w-lg w-full max-h-[70vh] overflow-hidden flex flex-col rounded-3xl border shadow-2xl ${isDarkMode ? 'bg-[#121212] border-white/10 text-white' : 'bg-white border-black/5 text-black'}`}>
                     <div className="p-6 border-b flex justify-between items-center dark:border-white/10">
-                       <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2"><Clock size={14}/> Update Logs</h2>
+                       <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2"><Clock size={14}/> 更新日志 </h2>
                        <button onClick={() => setShowLogs(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"><X size={18}/></button>
                     </div>
                     <div className="p-8 overflow-y-auto space-y-8 font-sans">
