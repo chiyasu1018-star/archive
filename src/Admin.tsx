@@ -275,7 +275,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       ) : view === 'logs' ? (
         // 🌟 独立的日志编辑视图
         <div className="max-w-xl mx-auto space-y-8 animate-in fade-in">
-           <h2 className="text-2xl font-black italic">Update Logs Editor</h2>
+           <h2 className="text-2xl font-black italic">更新日志</h2>
            <div className="bg-white dark:bg-black/20 p-8 rounded-3xl border dark:border-white/10 space-y-6 shadow-2xl">
               <div className="space-y-1">
                  <label className="text-[10px] font-black opacity-30 uppercase">Date</label>
