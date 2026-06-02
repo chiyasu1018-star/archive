@@ -32,6 +32,7 @@ interface Story {
   currentChapterTitle?: string;
   lastGitUpdate?: number; 
   latestChapterTitle?: string;
+  isR18?: boolean; // <--- 精确加入这一行
 }
 
 export default function App() {
@@ -196,16 +197,36 @@ export default function App() {
                   <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <header className="text-center py-12"><h1 className={`text-3xl font-black tracking-[0.2em] mb-4 ${isDarkMode ? 'text-white' : 'text-black'}`}>花汪档案馆</h1></header>
                     <section className="max-w-[700px] mx-auto">
-                      {currentItems.map(s => {
-                        return (
-                          <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
-                            <div className="flex justify-between items-baseline w-full">
-                              <div className="flex items-baseline gap-3"><h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                            </div>
-                            <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
-                          </motion.button>
-                        );
-                      })}
+                    {currentItems.map(s => {
+  return (
+    <motion.button key={s.id} ... >
+      <div className="flex justify-between items-baseline w-full">
+        {/* 左侧：标题和图标 */}
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>
+          {s.chapters && <BookOpen size={14} className="opacity-30" />}
+        </div>
+
+        {/* 🌟 右侧：R18 标识 (位置在列表最右侧，与标题对齐) */}
+        {s.isR18 && (
+          <span className={`text-[9px] font-sans font-black tracking-[0.2em] px-1.5 py-0.5 rounded border leading-none ${
+            isDarkMode 
+              ? 'border-red-500/40 text-red-500 bg-red-500/5' 
+              : 'border-red-600/20 text-red-600 bg-red-600/5'
+          }`}>
+            R18
+          </span>
+        )}
+      </div>
+      
+      {/* 下方：作者和章节信息 */}
+      <div className="col-span-full flex gap-4 text-[10px] ...">
+        <span>{s.author}</span>
+        {s.chapters && <span>{s.chapters.length} 章节</span>}
+      </div>
+    </motion.button>
+  );
+})}
                     </section>
                     {totalPages > 1 && (
                       <div className={`flex justify-center items-center gap-12 mt-20 py-10 border-t border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/5'}`}>
