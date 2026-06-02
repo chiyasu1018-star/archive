@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronUp, Moon, Sun, ShieldAlert, Heart, BookOpen, X, Clock } from 'lucide-react';
 import Admin from './Admin';
 import { Analytics } from '@vercel/analytics/react'; 
 
@@ -15,8 +15,8 @@ const GITHUB_REPO = "archive";
 const CACHE_KEY = "github_commit_cache";
 const CACHE_EXPIRY = 3600000; 
 
-// 实时数据源链接
 const LIVE_INDEX_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/public/stories/index.json`;
+const LIVE_LOGS_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/public/stories/logs.json`;
 
 interface Chapter { title: string; fileName: string; autoWordCount?: number; lastModified?: number; }
 interface Story { 
@@ -32,11 +32,18 @@ interface Story {
   currentChapterTitle?: string;
   lastGitUpdate?: number; 
   latestChapterTitle?: string;
-  isR18?: boolean; // 🌟 增加字段
+  isR18?: boolean;
+}
+
+interface UpdateLog {
+  date: string;
+  content: string;
 }
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
+  const [logs, setLogs] = useState<UpdateLog[]>([]); // 🌟 日志状态
+  const [showLogs, setShowLogs] = useState(false);   // 🌟 弹窗状态
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [showChapterList, setShowChapterList] = useState(false); 
   const [fontSize, setFontSize] = useState(18); 
@@ -62,22 +69,20 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    fetch(`${LIVE_INDEX_URL}?v=${Date.now()}`)
-      .then(res => res.json())
-      .then((data) => { 
-        setStories(data || []); 
-        setTimeout(() => setLoading(false), 800); 
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+    // 同时获取文章和日志
+    Promise.all([
+      fetch(`${LIVE_INDEX_URL}?v=${Date.now()}`).then(res => res.json()),
+      fetch(`${LIVE_LOGS_URL}?v=${Date.now()}`).then(res => res.json()).catch(() => [])
+    ]).then(([storyData, logsData]) => {
+      setStories(storyData || []);
+      setLogs(logsData || []);
+      setTimeout(() => setLoading(false), 800); 
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.hash === '#admin') {
-        setIsAdmin(true);
-      }
+      if (window.location.hash === '#admin') setIsAdmin(true);
     };
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
@@ -172,7 +177,13 @@ export default function App() {
                   <button onClick={handleBack} className={`flex items-center gap-2 text-xs uppercase tracking-widest font-sans font-black transition-opacity ${isDarkMode ? 'text-white/80 hover:text-white' : 'opacity-60 hover:opacity-100 text-black'}`}>
                     <ChevronLeft size={16} /> {showChapterList ? 'Home' : 'Back'}
                   </button>
-                ) : ( <h1 className={`text-sm uppercase tracking-widest font-sans font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-black'}`}>HW / ARCHIVE</h1> )}
+                ) : ( 
+                  <div className="flex items-center gap-4">
+                    <h1 className={`text-sm uppercase tracking-widest font-sans font-black opacity-30 ${isDarkMode ? 'text-white' : 'text-black'}`}>HW / ARCHIVE</h1>
+                    {/* 🌟 日志入口按钮 */}
+                    <button onClick={() => setShowLogs(true)} className={`text-[10px] uppercase tracking-[0.2em] font-sans font-black px-2 py-1 rounded border transition-all ${isDarkMode ? 'border-white/10 text-white/40 hover:text-white hover:border-white/30' : 'border-black/5 text-black/40 hover:text-black hover:border-black/20'}`}>Logs</button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-slate-700 hover:bg-black/5'}`}>
@@ -186,6 +197,29 @@ export default function App() {
                 )}
               </div>
             </header>
+
+            {/* 🌟 更新日志弹窗渲染 */}
+            <AnimatePresence>
+              {showLogs && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md">
+                  <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }} className={`max-w-lg w-full max-h-[70vh] overflow-hidden flex flex-col rounded-3xl border shadow-2xl ${isDarkMode ? 'bg-[#121212] border-white/10 text-white' : 'bg-white border-black/5 text-black'}`}>
+                    <div className="p-6 border-b flex justify-between items-center dark:border-white/10">
+                       <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2"><Clock size={14}/> Update Logs</h2>
+                       <button onClick={() => setShowLogs(false)} className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"><X size={18}/></button>
+                    </div>
+                    <div className="p-8 overflow-y-auto space-y-8 font-sans">
+                      {logs.length > 0 ? logs.map((log, i) => (
+                        <div key={i} className="space-y-2">
+                           <div className="text-[10px] font-black opacity-30 tracking-widest">{log.date}</div>
+                           <div className="text-sm leading-relaxed opacity-70 whitespace-pre-wrap">{log.content}</div>
+                        </div>
+                      )) : <div className="text-center py-20 opacity-20 text-xs tracking-widest uppercase">No Logs Yet</div>}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <main className="pt-24 pb-20 px-6 max-w-4xl mx-auto flex-grow w-full">
               <AnimatePresence mode="wait">
                 {!currentStory ? (
@@ -197,15 +231,10 @@ export default function App() {
                           <motion.button key={s.id} whileHover={{ x: 5 }} onClick={() => handleStoryClick(s)} className={`w-full grid grid-cols-[1fr_auto] py-8 border-b transition-colors text-left ${isDarkMode ? 'border-white/10 hover:border-white/30 text-white' : 'border-black/5 hover:border-black/20 text-[#333]'}`}>
                             <div className="flex justify-between items-baseline w-full">
                               <div className="flex items-baseline gap-3"><h3 className="text-xl font-black mb-1 font-serif italic">{s.title}</h3>{s.chapters && <BookOpen size={14} className="opacity-30" />}</div>
-                              {/* 🌟 R18 标识位置 */}
                               {s.isR18 && (
                                 <span className={`text-[9px] font-sans font-black tracking-[0.2em] px-1.5 py-0.5 rounded border leading-none shrink-0 ml-4 ${
-                                  isDarkMode 
-                                    ? 'border-red-500/40 text-red-500 bg-red-500/5' 
-                                    : 'border-red-600/20 text-red-600 bg-red-600/5'
-                                }`}>
-                                  R18
-                                </span>
+                                  isDarkMode ? 'border-red-500/40 text-red-500 bg-red-500/5' : 'border-red-600/20 text-red-600 bg-red-600/5'
+                                }`}>R18</span>
                               )}
                             </div>
                             <div className="col-span-full flex gap-4 text-[10px] opacity-50 dark:opacity-70 uppercase tracking-widest font-sans font-black"><span>{s.author}</span>{s.chapters && <span>{s.chapters.length} 章节</span>}</div>
