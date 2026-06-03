@@ -152,7 +152,7 @@ export default function App() {
                 <motion.div key="question" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} className="max-w-md w-full">
                   <ShieldAlert className={`mx-auto mb-8 opacity-20 ${isDarkMode ? 'text-white' : 'text-black'}`} size={48} />
                   <h1 className={`text-2xl font-bold tracking-[0.3em] mb-4 uppercase ${isDarkMode ? 'text-white' : 'text-black'}`}>Content Notice</h1>
-                  <p className={`mb-12 text-xs leading-relaxed tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-black/60'}`}>本站存档内容包含部分分级作品（R18），仅供成年人浏览。<br/>继续访问即代表您已年满 18 周岁。</p>
+                  <p className={`mb-12 text-xs leading-relaxed tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-black/60'}`}>本站存档内容包含部分分级作品（R18）仅供成年人浏览 <br/>继续访问即代表您已年满 18 周岁。</p>
                   <div className="flex flex-col gap-4 items-center">
                     <button onClick={handleConfirmAge} className={`w-48 py-3 border rounded-full text-[10px] font-black tracking-[0.3em] uppercase transition-all ${isDarkMode ? 'border-white/40 hover:bg-white hover:text-black bg-white/5' : 'border-black/20 hover:bg-black hover:text-white bg-black/5'}`}>I KNOW / 我已知晓</button>
                     <button onClick={() => setIsHonest(true)} className={`text-[10px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity font-bold ${isDarkMode ? 'text-white' : 'text-black'}`}>LEAVE / 离开</button>
