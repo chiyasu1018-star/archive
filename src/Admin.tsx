@@ -28,6 +28,11 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 const FETCH_TIMEOUT = 10000;
 
+/** 连不上 GitHub 时的提示文案。
+ *  这种情况刻意「放行 + 提醒」而不是拦人：连不上时谁也传不了文章，
+ *  把站主挡在自己后台门外没有任何安全收益，只有损失。 */
+const NET_WARNING = '未能连接 GitHub 验证密钥，当前为未验证状态。上传前请确认网络正常。';
+
 /** 带超时的请求。raw.githubusercontent.com 在国内经常连不上，
  *  不加超时的话后台会永远停在加载中，连"失败"都看不到 */
 const fetchWithTimeout = async (url: string, timeout = FETCH_TIMEOUT) => {
@@ -80,6 +85,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [gateInput, setGateInput] = useState('');
   const [gateError, setGateError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  // 非阻塞提醒：进来了但密钥还没验证成功（网络问题），照常能写草稿，只是先别急着传
+  const [netWarning, setNetWarning] = useState('');
 
   // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -151,7 +158,9 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // 打开后台时若本地已存 Token，自动验证一次；通过才放行
+  // 打开后台时若本地已存 Token，自动验证一次。
+  // 只有「密钥无效」才拦人；「连不上 GitHub」放行——编造的密钥会被判「无效」而不是
+  // 「网络不通」，所以能走到网络分支说明是真连不上，那时谁也传不了文章。
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -161,7 +170,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       if (cancelled) return;
       setVerifying(false);
       if (r === 'ok') setUnlocked(true);
-      else if (r === 'network') setGateError('无法连接 GitHub，请检查网络后重新验证');
+      else if (r === 'network') { setNetWarning(NET_WARNING); setUnlocked(true); }
       else setGateError('本地保存的密钥已失效，请重新输入');
     })();
     return () => { cancelled = true; };
@@ -176,11 +185,24 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     const r = await verifyToken(gateInput);
     setVerifying(false);
     if (r === 'bad') { setGateError('密钥无效，或该密钥对本仓库没有写权限'); return; }
-    if (r === 'network') { setGateError('无法连接 GitHub，请检查网络后重试'); return; }
+    // 走到这里只剩「真连不上 GitHub」。放行，但挂上提醒条。
+    if (r === 'network') setNetWarning(NET_WARNING);
     setToken(gateInput);
     try { localStorage.setItem(TOKEN_KEY, gateInput); } catch {}
     setGateInput('');
     setUnlocked(true);
+  };
+
+  /** 网络恢复后手动重验一次；通过就撤掉提醒条 */
+  const recheckToken = async () => {
+    if (!token) return;
+    setVerifying(true);
+    const r = await verifyToken(token);
+    setVerifying(false);
+    if (r === 'ok') { setNetWarning(''); setStatus('密钥验证通过 ✓'); }
+    else if (r === 'bad') setNetWarning('密钥无效，或该密钥对本仓库没有写权限。请在右上角重新填入密钥。');
+    else setNetWarning('仍无法连接 GitHub，请检查网络后重试。');
+    setTimeout(() => setStatus(''), 3000);
   };
 
   // Token 改为防抖写入，不再每敲一个字符就落盘
@@ -579,6 +601,23 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             </button>
         </div>
       </header>
+
+      {/* 未验证提醒条：不挡操作，只提醒。上传前网络恢复了点一下重验即可 */}
+      {netWarning && (
+        <div role="alert" className="mb-8 px-5 py-4 rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] flex items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400 mb-1.5">未验证 / Unverified</div>
+            <p className="text-[12px] leading-relaxed text-amber-800/80 dark:text-amber-200/80">{netWarning}</p>
+          </div>
+          <button
+            onClick={() => void recheckToken()}
+            disabled={verifying}
+            className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] underline underline-offset-4 text-amber-700 dark:text-amber-400 hover:opacity-70 disabled:opacity-30 transition-opacity"
+          >
+            {verifying ? '验证中…' : '重新验证'}
+          </button>
+        </div>
+      )}
 
       {view === 'list' ? (
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">

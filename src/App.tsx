@@ -30,10 +30,12 @@ const POS_KEY = 'hw_reading_pos';
 const FONT_KEY = 'hw_font_size';
 const SITE_TITLE = '花汪档案馆 | HuaWang Archive';
 
-// 后台入口密钥（地址栏 # 后面那段）。只有知道它的人才能打开后台界面。
+// 后台入口（地址栏 # 后面那段）。只有知道它的人才能打开后台界面。
 // 说明：它出现在前端产物里，属于"门牌"而非"锁"——真正的锁是后台里要求验证的 Token，
-// 而且后台在 Token 通过验证前不会渲染任何内容。换密钥只需改这一行。
-const ADMIN_HASH = '#hw-699375a42e24efbe';
+// 而且后台在 Token 通过验证前不会渲染任何内容。
+// 所以这里刻意用一个好记的短入口：好记是为了站主自己方便，隐蔽性不靠它——
+// 陌生人就算猜到这段，看到的也只是一个密码框。换入口只需改这一行。
+const ADMIN_HASH = '#hw-admin';
 
 /** 带超时的 JSON 请求，避免网络不通时请求永久挂起 */
 const fetchJson = async (url: string, timeout = FETCH_TIMEOUT) => {
@@ -284,8 +286,9 @@ export default function App() {
     setReloadKey(k => k + 1);
   };
 
-  // 后台入口：只有地址栏 # 后面带着正确密钥时才进得去。
-  // 以前是「页脚连点 5 下」+ `#admin`，两者都是公开约定/可猜字符串，等于没藏。
+  // 后台入口：地址栏 # 后面带着入口名时才进得去。
+  // 以前是「页脚连点 5 下」——那是行业通用手势，等于把入口摆在明面上。
+  // 现在页面上不留任何入口痕迹；进门后还有 Token 门禁把关。
   useEffect(() => {
     const handleHashChange = () => {
       if (window.location.hash === ADMIN_HASH) setIsAdmin(true);
@@ -295,8 +298,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 退出后台时清掉地址栏里的入口密钥，否则刷新又掉回后台，
-  // 而且密钥会一直留在地址栏上被旁人看到
+  // 退出后台时清掉地址栏里的入口名，否则刷新又掉回后台
   const exitAdmin = useCallback(() => {
     setIsAdmin(false);
     if (window.location.hash === ADMIN_HASH) {
