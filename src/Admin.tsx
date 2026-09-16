@@ -73,6 +73,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [logs, setLogs] = useState<any[]>([]);       // 🌟 日志状态
   const [isListLoading, setIsListLoading] = useState(false);
 
+  // ── 门禁 ──
+  // Token 通过 GitHub 验证之前，后台不渲染任何内容、也不拉取任何数据。
+  // 以前只要打开后台就会去读作品列表，等于把后台结构摊开给任何找到入口的人。
+  const [unlocked, setUnlocked] = useState(false);
+  const [gateInput, setGateInput] = useState('');
+  const [gateError, setGateError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
   // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingFileName, setEditingFileName] = useState<string | null>(null);
@@ -126,7 +134,54 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     }
   };
 
-  useEffect(() => { fetchStories(); fetchLogs(); }, []);
+  /** 真去 GitHub 确认这个 Token 对本仓库有写权限。
+   *  不是本地假判断——随手编一个字符串是过不去的。 */
+  const verifyToken = async (candidate: string): Promise<'ok' | 'bad' | 'network'> => {
+    if (!candidate) return 'bad';
+    try {
+      const { data } = await octokitFor(candidate).rest.repos.get({ owner: REPO_OWNER, repo: REPO_NAME });
+      const canPush = !!(data.permissions && (data.permissions.push || data.permissions.admin));
+      return canPush ? 'ok' : 'bad';
+    } catch (e: any) {
+      const s = e?.status;
+      if (s === 401 || s === 404) return 'bad';
+      // 403 可能是限流（可重试）也可能是权限不足（不可重试），按报错文案区分
+      if (s === 403) return /rate limit/i.test(String(e?.message || '')) ? 'network' : 'bad';
+      return 'network';
+    }
+  };
+
+  // 打开后台时若本地已存 Token，自动验证一次；通过才放行
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!token) return;
+      setVerifying(true);
+      const r = await verifyToken(token);
+      if (cancelled) return;
+      setVerifying(false);
+      if (r === 'ok') setUnlocked(true);
+      else if (r === 'network') setGateError('无法连接 GitHub，请检查网络后重新验证');
+      else setGateError('本地保存的密钥已失效，请重新输入');
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 只有验证通过后才去读数据
+  useEffect(() => { if (unlocked) { fetchStories(); fetchLogs(); } }, [unlocked]);
+
+  const tryUnlock = async () => {
+    if (!gateInput) return;
+    setVerifying(true); setGateError('');
+    const r = await verifyToken(gateInput);
+    setVerifying(false);
+    if (r === 'bad') { setGateError('密钥无效，或该密钥对本仓库没有写权限'); return; }
+    if (r === 'network') { setGateError('无法连接 GitHub，请检查网络后重试'); return; }
+    setToken(gateInput);
+    try { localStorage.setItem(TOKEN_KEY, gateInput); } catch {}
+    setGateInput('');
+    setUnlocked(true);
+  };
 
   // Token 改为防抖写入，不再每敲一个字符就落盘
   useEffect(() => { tokenRef.current = token; }, [token]);
@@ -471,6 +526,40 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     }
     onBack();
   };
+
+  // ── 未通过验证：只给一个密钥输入框，其余什么都不渲染 ──
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 font-sans">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-25 text-center">Restricted Area</div>
+          <div className="bg-white dark:bg-black/20 p-8 rounded-3xl border dark:border-white/10 shadow-2xl space-y-5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Access Key</label>
+              <input
+                type="password"
+                value={gateInput}
+                autoFocus
+                onChange={e => setGateInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void tryUnlock(); }}
+                className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs"
+                placeholder="••••••••••••••"
+              />
+            </div>
+            {gateError && <div className="text-[11px] text-red-500 font-bold leading-relaxed">{gateError}</div>}
+            <button
+              onClick={() => void tryUnlock()}
+              disabled={verifying || !gateInput}
+              className="w-full py-3 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-black font-black text-xs tracking-widest disabled:opacity-30 transition-opacity"
+            >
+              {verifying ? 'VERIFYING...' : 'UNLOCK'}
+            </button>
+          </div>
+          <button onClick={onBack} className="w-full text-center text-[10px] uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity">← 返回站点</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 max-w-4xl mx-auto font-sans text-sm text-slate-800 dark:text-slate-200">

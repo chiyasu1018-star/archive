@@ -30,6 +30,11 @@ const POS_KEY = 'hw_reading_pos';
 const FONT_KEY = 'hw_font_size';
 const SITE_TITLE = '花汪档案馆 | HuaWang Archive';
 
+// 后台入口密钥（地址栏 # 后面那段）。只有知道它的人才能打开后台界面。
+// 说明：它出现在前端产物里，属于"门牌"而非"锁"——真正的锁是后台里要求验证的 Token，
+// 而且后台在 Token 通过验证前不会渲染任何内容。换密钥只需改这一行。
+const ADMIN_HASH = '#hw-699375a42e24efbe';
+
 /** 带超时的 JSON 请求，避免网络不通时请求永久挂起 */
 const fetchJson = async (url: string, timeout = FETCH_TIMEOUT) => {
   const controller = new AbortController();
@@ -279,19 +284,22 @@ export default function App() {
     setReloadKey(k => k + 1);
   };
 
+  // 后台入口：只有地址栏 # 后面带着正确密钥时才进得去。
+  // 以前是「页脚连点 5 下」+ `#admin`，两者都是公开约定/可猜字符串，等于没藏。
   useEffect(() => {
     const handleHashChange = () => {
-      if (window.location.hash === '#admin') setIsAdmin(true);
+      if (window.location.hash === ADMIN_HASH) setIsAdmin(true);
     };
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 退出后台时清掉 #admin，否则刷新又掉回后台
+  // 退出后台时清掉地址栏里的入口密钥，否则刷新又掉回后台，
+  // 而且密钥会一直留在地址栏上被旁人看到
   const exitAdmin = useCallback(() => {
     setIsAdmin(false);
-    if (window.location.hash === '#admin') {
+    if (window.location.hash === ADMIN_HASH) {
       window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
   }, []);
@@ -616,7 +624,7 @@ export default function App() {
         </main>
         <footer className={`py-20 px-6 border-t text-center opacity-40 text-[10px] tracking-widest font-serif uppercase ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-black/5 text-black'}`}>
           <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12 text-center font-black"><p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。继续访问即代表您已年满 18 周岁。</p><p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p><p>站内内容全是机翻，如有侵权请联系删除。</p><p className="font-bold">联系微博：<span>@恋花症-</span></p></div>
-          <p onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }} className="italic font-sans tracking-[0.2em] cursor-default select-none text-center">© 2026 HW ARCHIVE.</p>
+          <p className="italic font-sans tracking-[0.2em] cursor-default select-none text-center">© 2026 HW ARCHIVE.</p>
         </footer>
       </motion.div>
       <Analytics />
