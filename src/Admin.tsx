@@ -28,10 +28,16 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 const FETCH_TIMEOUT = 10000;
 
-/** 连不上 GitHub 时的提示文案。
- *  这种情况刻意「放行 + 提醒」而不是拦人：连不上时谁也传不了文章，
- *  把站主挡在自己后台门外没有任何安全收益，只有损失。 */
-const NET_WARNING = '未能连接 GitHub 验证密钥，当前为未验证状态。上传前请确认网络正常。';
+/** 后台小门禁的密码。
+ *  它只是「别让人随手撞进来」的减速带，**不是安全边界**——它写在前端产物里，
+ *  任何人读源码都能看到。真正的锁是右上角那个 GitHub Token：没有它，谁也传不了文章。
+ *  所以这里刻意用一个短、好打的密码，不要用 Token 本身（太长，每次输入纯属折磨）。
+ *  想换密码：改这一行即可（改完要重新部署才生效）。 */
+const GATE_PASSWORD = '123456';
+
+/** 门禁通过后记在这里。记住之后就不再问站主了——
+ *  这道门本来就不是为了拦你，是为了拦路过的人。 */
+const GATE_KEY = 'hw_gate';
 
 /** 带超时的请求。raw.githubusercontent.com 在国内经常连不上，
  *  不加超时的话后台会永远停在加载中，连"失败"都看不到 */
@@ -78,15 +84,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [logs, setLogs] = useState<any[]>([]);       // 🌟 日志状态
   const [isListLoading, setIsListLoading] = useState(false);
 
-  // ── 门禁 ──
-  // Token 通过 GitHub 验证之前，后台不渲染任何内容、也不拉取任何数据。
-  // 以前只要打开后台就会去读作品列表，等于把后台结构摊开给任何找到入口的人。
-  const [unlocked, setUnlocked] = useState(false);
+  // ── 小门禁 ──
+  // 一道短密码的减速带：拦的是「随手撞进来的人」，不是站主。
+  // 站主填过一次之后本机就记住了，此后打开后台直接进，一次都不用再填。
+  // 没通过之前不渲染任何界面、也不拉取任何数据。
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return localStorage.getItem(GATE_KEY) === GATE_PASSWORD; } catch { return false; }
+  });
   const [gateInput, setGateInput] = useState('');
   const [gateError, setGateError] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  // 非阻塞提醒：进来了但密钥还没验证成功（网络问题），照常能写草稿，只是先别急着传
-  const [netWarning, setNetWarning] = useState('');
 
   // 表单状态
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -141,68 +147,21 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     }
   };
 
-  /** 真去 GitHub 确认这个 Token 对本仓库有写权限。
-   *  不是本地假判断——随手编一个字符串是过不去的。 */
-  const verifyToken = async (candidate: string): Promise<'ok' | 'bad' | 'network'> => {
-    if (!candidate) return 'bad';
-    try {
-      const { data } = await octokitFor(candidate).rest.repos.get({ owner: REPO_OWNER, repo: REPO_NAME });
-      const canPush = !!(data.permissions && (data.permissions.push || data.permissions.admin));
-      return canPush ? 'ok' : 'bad';
-    } catch (e: any) {
-      const s = e?.status;
-      if (s === 401 || s === 404) return 'bad';
-      // 403 可能是限流（可重试）也可能是权限不足（不可重试），按报错文案区分
-      if (s === 403) return /rate limit/i.test(String(e?.message || '')) ? 'network' : 'bad';
-      return 'network';
-    }
-  };
-
-  // 打开后台时若本地已存 Token，自动验证一次。
-  // 只有「密钥无效」才拦人；「连不上 GitHub」放行——编造的密钥会被判「无效」而不是
-  // 「网络不通」，所以能走到网络分支说明是真连不上，那时谁也传不了文章。
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!token) return;
-      setVerifying(true);
-      const r = await verifyToken(token);
-      if (cancelled) return;
-      setVerifying(false);
-      if (r === 'ok') setUnlocked(true);
-      else if (r === 'network') { setNetWarning(NET_WARNING); setUnlocked(true); }
-      else setGateError('本地保存的密钥已失效，请重新输入');
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // 只有验证通过后才去读数据
+  // 门禁通过后才去读数据（没进门之前，后台不该产生任何请求）
   useEffect(() => { if (unlocked) { fetchStories(); fetchLogs(); } }, [unlocked]);
 
-  const tryUnlock = async () => {
-    if (!gateInput) return;
-    setVerifying(true); setGateError('');
-    const r = await verifyToken(gateInput);
-    setVerifying(false);
-    if (r === 'bad') { setGateError('密钥无效，或该密钥对本仓库没有写权限'); return; }
-    // 走到这里只剩「真连不上 GitHub」。放行，但挂上提醒条。
-    if (r === 'network') setNetWarning(NET_WARNING);
-    setToken(gateInput);
-    try { localStorage.setItem(TOKEN_KEY, gateInput); } catch {}
+  /** 小门禁：只比一个短密码，纯本地判断、不联网。
+   *  刻意不在这里验 Token——门禁要的是「快」，不是「强」。
+   *  通过后本机记住，站主此后打开后台直接进，不用再填。 */
+  const tryUnlock = () => {
+    if (gateInput !== GATE_PASSWORD) {
+      setGateError('密码不对');
+      return;
+    }
+    try { localStorage.setItem(GATE_KEY, GATE_PASSWORD); } catch {}
     setGateInput('');
+    setGateError('');
     setUnlocked(true);
-  };
-
-  /** 网络恢复后手动重验一次；通过就撤掉提醒条 */
-  const recheckToken = async () => {
-    if (!token) return;
-    setVerifying(true);
-    const r = await verifyToken(token);
-    setVerifying(false);
-    if (r === 'ok') { setNetWarning(''); setStatus('密钥验证通过 ✓'); }
-    else if (r === 'bad') setNetWarning('密钥无效，或该密钥对本仓库没有写权限。请在右上角重新填入密钥。');
-    else setNetWarning('仍无法连接 GitHub，请检查网络后重试。');
-    setTimeout(() => setStatus(''), 3000);
   };
 
   // Token 改为防抖写入，不再每敲一个字符就落盘
@@ -430,7 +389,15 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       setStatus('已提交 ✓');
       setIsPublishing(false);
       void watchDeploy(storyId);
-    } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
+    } catch (err: any) {
+      // 401/403 基本都是 Token 的问题，直接点明，别让站主去猜
+      const s = err?.status;
+      const hint = (s === 401 || s === 403)
+        ? '密钥无效或权限不足，请检查右上角的 GitHub Token'
+        : err.message;
+      setStatus(`错误: ${hint}`);
+      setIsPublishing(false);
+    }
   };
 
   // 🌟 保存日志逻辑：写入前重新拉一次最新日志，避免用本地旧列表覆盖
@@ -549,33 +516,37 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     onBack();
   };
 
-  // ── 未通过验证：只给一个密钥输入框，其余什么都不渲染 ──
+  // ── 小门禁：没通过之前只给一个密码框，其余什么都不渲染 ──
   if (!unlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 font-sans">
-        <div className="w-full max-w-sm space-y-6">
+        <div className="w-full max-w-xs space-y-6">
           <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-25 text-center">Restricted Area</div>
           <div className="bg-white dark:bg-black/20 p-8 rounded-3xl border dark:border-white/10 shadow-2xl space-y-5">
             <div className="space-y-1">
-              <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">Access Key</label>
+              <label className="text-[10px] font-black opacity-30 uppercase tracking-widest">密码 / Password</label>
               <input
                 type="password"
                 value={gateInput}
                 autoFocus
+                inputMode="numeric"
                 onChange={e => setGateInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') void tryUnlock(); }}
-                className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-xs"
-                placeholder="••••••••••••••"
+                onKeyDown={e => { if (e.key === 'Enter') tryUnlock(); }}
+                className="w-full bg-slate-100 dark:bg-white/5 p-3 rounded-xl outline-none text-center text-lg tracking-[0.3em] font-mono"
+                placeholder="••••••"
               />
             </div>
-            {gateError && <div className="text-[11px] text-red-500 font-bold leading-relaxed">{gateError}</div>}
+            {gateError && <div className="text-[11px] text-red-500 font-bold leading-relaxed text-center">{gateError}</div>}
             <button
-              onClick={() => void tryUnlock()}
-              disabled={verifying || !gateInput}
+              onClick={tryUnlock}
+              disabled={!gateInput}
               className="w-full py-3 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-black font-black text-xs tracking-widest disabled:opacity-30 transition-opacity"
             >
-              {verifying ? 'VERIFYING...' : 'UNLOCK'}
+              ENTER
             </button>
+            <p className="text-[10px] leading-relaxed opacity-40 text-center">
+              通过一次之后，这台设备会记住，不再问你。
+            </p>
           </div>
           <button onClick={onBack} className="w-full text-center text-[10px] uppercase tracking-widest opacity-30 hover:opacity-60 transition-opacity">← 返回站点</button>
         </div>
@@ -601,23 +572,6 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             </button>
         </div>
       </header>
-
-      {/* 未验证提醒条：不挡操作，只提醒。上传前网络恢复了点一下重验即可 */}
-      {netWarning && (
-        <div role="alert" className="mb-8 px-5 py-4 rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] flex items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400 mb-1.5">未验证 / Unverified</div>
-            <p className="text-[12px] leading-relaxed text-amber-800/80 dark:text-amber-200/80">{netWarning}</p>
-          </div>
-          <button
-            onClick={() => void recheckToken()}
-            disabled={verifying}
-            className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] underline underline-offset-4 text-amber-700 dark:text-amber-400 hover:opacity-70 disabled:opacity-30 transition-opacity"
-          >
-            {verifying ? '验证中…' : '重新验证'}
-          </button>
-        </div>
-      )}
 
       {view === 'list' ? (
         <div className="max-w-2xl mx-auto space-y-4 animate-in fade-in duration-300">

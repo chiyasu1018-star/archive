@@ -30,11 +30,10 @@ const POS_KEY = 'hw_reading_pos';
 const FONT_KEY = 'hw_font_size';
 const SITE_TITLE = '花汪档案馆 | HuaWang Archive';
 
-// 后台入口（地址栏 # 后面那段）。只有知道它的人才能打开后台界面。
-// 说明：它出现在前端产物里，属于"门牌"而非"锁"——真正的锁是后台里要求验证的 Token，
-// 而且后台在 Token 通过验证前不会渲染任何内容。
-// 所以这里刻意用一个好记的短入口：好记是为了站主自己方便，隐蔽性不靠它——
-// 陌生人就算猜到这段，看到的也只是一个密码框。换入口只需改这一行。
+// 后台入口之二（另一个入口是页脚版权字连点 5 下）。
+// 说明：入口名会出现在前端产物里，属于"门牌"而非"锁"——真正把关的是进门后那道小门禁，
+// 而小门禁也只是减速带；最终的安全边界是后台里那个 GitHub Token（没有它谁也传不了文章）。
+// 所以这里刻意用好记的短名，方便站主；换入口只需改这一行。
 const ADMIN_HASH = '#hw-admin';
 
 /** 带超时的 JSON 请求，避免网络不通时请求永久挂起 */
@@ -626,7 +625,13 @@ export default function App() {
         </main>
         <footer className={`py-20 px-6 border-t text-center opacity-40 text-[10px] tracking-widest font-serif uppercase ${isDarkMode ? 'border-white/10 text-slate-400' : 'border-black/5 text-black'}`}>
           <div className="max-w-[600px] mx-auto space-y-3 normal-case leading-relaxed mb-12 text-center font-black"><p>本站存档内容包含部分分级作品（R18），仅供成年人浏览。继续访问即代表您已年满 18 周岁。</p><p>本站仅作为 Postype 平台 녘랜 (花汪) 同人文作品的翻译交流与存档使用，版权归原作者所有。</p><p>站内内容全是机翻，如有侵权请联系删除。</p><p className="font-bold">联系微博：<span>@恋花症-</span></p></div>
-          <p className="italic font-sans tracking-[0.2em] cursor-default select-none text-center">© 2026 HW ARCHIVE.</p>
+          {/* 后台入口之一：在这行版权字上连点 5 下。
+              它是个通用手势，不指望藏住谁——进门后还有一道小门禁（短密码）把关，
+              所以入口只需要好用，不需要神秘。 */}
+          <p
+            onClick={(e) => { if (e.detail === 5) setIsAdmin(true); }}
+            className="italic font-sans tracking-[0.2em] cursor-default select-none text-center"
+          >© 2026 HW ARCHIVE.</p>
         </footer>
       </motion.div>
       <Analytics />
