@@ -1,0 +1,26 @@
+**转换 **
+*斜体*
+
+[bubble:L]
+气泡
+[/bubble]
+
+
+[bubble:R]
+气泡
+[/bubble]
+
+
+[box]
+方框
+[/box]
+
+
+[quote]
+引用
+[/quote]
+
+---
+[youtube:2rWhSfG3K0U]
+啊 新功能 很不错呢
+ [bvid:BV1XLfwY2Eia]
