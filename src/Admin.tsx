@@ -9,6 +9,11 @@ const REPO_OWNER = "chiyasu1018-star";
 const REPO_NAME = "archive";      
 const BRANCH = "main";             
 
+// 主源：站点自己部署的副本。同源、走 Vercel CDN、国内可直连。
+const LOCAL_INDEX_URL = '/stories/index.json';
+const LOCAL_LOGS_URL = '/stories/logs.json';
+// 备用源：只有在本地副本取不到时才用。raw.githubusercontent.com 在国内经常完全连不上，
+// 以前后台把它当主源，导致每次打开后台都卡满 10 秒超时再报"列表获取失败"。
 const RAW_GITHUB_INDEX = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/public/stories/index.json`;
 const RAW_GITHUB_LOGS = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/public/stories/logs.json`;
 
@@ -34,6 +39,17 @@ const fetchWithTimeout = async (url: string, timeout = FETCH_TIMEOUT) => {
     return await res.json();
   } finally {
     clearTimeout(timer);
+  }
+};
+
+/** 先读站点自身（同源、快），失败才回退 GitHub raw。
+ *  注意：同源那份只代表"上次部署后"的状态，所以**发布后的刷新不能用它**——
+ *  发布后的列表更新直接用刚写入的数据改本地状态，一次网络请求都不发。 */
+const fetchJsonWithFallback = async (localUrl: string, remoteUrl: string) => {
+  try {
+    return await fetchWithTimeout(`${localUrl}?v=${Date.now()}`, 6000);
+  } catch {
+    return await fetchWithTimeout(`${remoteUrl}?v=${Date.now()}`, FETCH_TIMEOUT);
   }
 };
 
@@ -92,7 +108,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const fetchStories = async () => {
     setIsListLoading(true);
     try {
-      const data = await fetchWithTimeout(`${RAW_GITHUB_INDEX}?v=${Date.now()}`);
+      const data = await fetchJsonWithFallback(LOCAL_INDEX_URL, RAW_GITHUB_INDEX);
       setStories(Array.isArray(data) ? data : []);
     } catch (err) { setStatus("列表获取失败"); }
     finally { setIsListLoading(false); }
@@ -100,7 +116,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
   const fetchLogs = async () => {
     try {
-      const data = await fetchWithTimeout(`${RAW_GITHUB_LOGS}?v=${Date.now()}`);
+      const data = await fetchJsonWithFallback(LOCAL_LOGS_URL, RAW_GITHUB_LOGS);
       setLogs(Array.isArray(data) ? data : []);
     } catch (e) {
       // 不能静默清空：否则日志拉取失败时看起来像"一条日志都没有"
@@ -166,6 +182,45 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     }, 0);
   };
 
+  /** 把正文里粘的 B站 / YouTube 链接直接换成站内视频标签。
+   *  以前这些位置全靠人工记住并手抠视频 ID，现在粘链接、点一下就行。
+   *  纯本地文本替换，不联网、不改动正文其他内容。 */
+  const convertVideoLinks = () => {
+    let count = 0;
+
+    // YouTube 三种写法统一处理，顺带保留起始秒数
+    const ytToTag = (url: string) => {
+      const id =
+        url.match(/[?&]v=([A-Za-z0-9_-]{6,})/)?.[1] ||
+        url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)?.[1] ||
+        url.match(/\/shorts\/([A-Za-z0-9_-]{6,})/)?.[1];
+      if (!id) return null;
+      const t = url.match(/[?&]t=(\d+)s?/)?.[1];
+      return `[youtube:${id}${t ? `&t=${t}s` : ''}]`;
+    };
+
+    const next = content
+      // B站：bilibili.com/video/BVxxxx 或 /video/av123
+      .replace(/https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/(BV[0-9A-Za-z]+|av\d+)[^\s]*/g, (_m, id) => {
+        count++; return `[bvid:${id}]`;
+      })
+      // YouTube
+      .replace(
+        /https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?[^\s]+|shorts\/[^\s]+)|youtu\.be\/[^\s]+)/g,
+        (m) => { const tag = ytToTag(m); if (!tag) return m; count++; return tag; }
+      );
+
+    if (count === 0) {
+      setStatus('没有找到可转换的链接');
+      setTimeout(() => setStatus(''), 2500);
+      return;
+    }
+    setContent(next);
+    setDirty(true);
+    setStatus(`已把 ${count} 个链接转成视频标签`);
+    setTimeout(() => setStatus(''), 2500);
+  };
+
   const handleEdit = async (story: any, fileName: string, cTitle: string = '') => {
     if (!confirmDiscard()) return;
     setIsPublishing(true); setStatus('读取中...');
@@ -215,24 +270,51 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     setView(next);
   };
 
+  /** 提交后轮询站点自身，等这篇真的上线（Vercel 重新部署要几十秒）。
+   *  刻意不阻塞界面：先让用户看到"已提交"，真上线了再补一句，避免盯着按钮干等。 */
+  const watchDeploy = async (storyId: string) => {
+    for (let i = 0; i < 24; i++) {
+      await sleep(5000);
+      try {
+        const res = await fetch(`${LOCAL_INDEX_URL}?v=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data) && data.some((s: any) => s.id === storyId)) {
+          setStatus('已上线 ✓');
+          setTimeout(() => setStatus(''), 4000);
+          return;
+        }
+      } catch { /* 还没部署好，继续等 */ }
+    }
+    setStatus('已提交 ✓（线上部署中，约 1 分钟后刷新可见）');
+    setTimeout(() => setStatus(''), 6000);
+  };
+
   const handlePublish = async () => {
     if (!token || !title || !content) return alert("必填项为空");
-    setIsPublishing(true); setStatus('同步至 GitHub...');
+    setIsPublishing(true); setStatus('上传正文…');
     try {
       const octokit = octokitFor(token);
       const storyId = editingId || Date.now().toString();
       const fileName = editingFileName || `story_${storyId}_${Date.now()}.txt`;
+      // 新建时文件名是刚生成的，文件必然不存在 → 跳过 sha 查询，
+      // 省掉一次注定 404 的往返（发布一共只有 4 个请求，这是其中一个）
+      const isNewFile = !editingFileName;
 
-      // 正文：重新取一次 sha 再写，避免拿到过期的 sha
+      // 正文：编辑已有文件时才需要先取 sha，避免拿到过期的
       await withRetry(async () => {
         let sha: string | undefined;
-        try { sha = (await getFile(octokit, `public/stories/${fileName}`)).sha; } catch {}
+        if (!isNewFile) {
+          try { sha = (await getFile(octokit, `public/stories/${fileName}`)).sha; } catch {}
+        }
         await octokit.rest.repos.createOrUpdateFileContents({
           owner: REPO_OWNER, repo: REPO_NAME, path: `public/stories/${fileName}`,
           message: `Update`, content: b64encode(content), sha, branch: BRANCH,
         });
       });
 
+      setStatus('更新索引…');
+      let nextIndex: any[] = [];
       // 索引：每次重试都重新读一遍最新内容，避免覆盖别人的改动
       await withRetry(async () => {
         const idxF = await getFile(octokit, INDEX_PATH);
@@ -259,11 +341,18 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           owner: REPO_OWNER, repo: REPO_NAME, path: INDEX_PATH,
           sha: idxF.sha, message: `Index`, content: b64encode(JSON.stringify(indexData, null, 2)), branch: BRANCH,
         });
+        nextIndex = indexData;
       });
 
-      setStatus('成功！');
-      setDirty(false);
-      setTimeout(() => { fetchStories(); setView('list'); setStatus(''); resetForm(); setIsPublishing(false); }, 1000);
+      // 关键：直接用刚写入的数据刷新列表，不再去打 raw.githubusercontent.com。
+      // 以前这一步在国内会卡满 10 秒，然后显示"列表获取失败"——明明上传成功了，
+      // 界面却在报错，这正是"感觉卡、怀疑没传上去"的主因。
+      if (nextIndex.length) setStories(nextIndex);
+      resetForm();
+      setView('list');
+      setStatus('已提交 ✓');
+      setIsPublishing(false);
+      void watchDeploy(storyId);
     } catch (err: any) { setStatus(`错误: ${err.message}`); setIsPublishing(false); }
   };
 
@@ -494,6 +583,10 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                     {[ ['**','**',Bold], ['*','*',Italic], ['[box]','[/box]',Square], ['[quote]','[/quote]',Quote], ['[bubble:L]','[/bubble]',MessageSquare], ['[bubble:R]','[/bubble]',MessageSquare], ['---','',Minus], ['[bvid:',']',Video] ].map(([ot,ct,Icon]:any, i) => (
                       <button key={i} type="button" onClick={(e) => insertTag(e, ot, ct)} className={`p-3 rounded-xl hover:bg-blue-600 hover:text-white transition-all bg-slate-100 dark:bg-white/10 ${ot.includes(':R') ? 'text-blue-500' : ''}`}><Icon size={16}/></button>
                     ))}
+                    {/* 粘了链接就不用再手抠视频 ID、也不用记插入位置了 */}
+                    <button type="button" onClick={convertVideoLinks} title="把正文里粘贴的 B站 / YouTube 链接自动换成视频标签" className="flex items-center gap-2 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 border border-blue-500/20 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all">
+                      <Video size={14}/> 链接转视频
+                    </button>
                   </div>
                   <textarea ref={textareaRef} value={content} onChange={e => { setContent(e.target.value); setDirty(true); }} className="w-full h-[500px] bg-slate-50 dark:bg-white/5 p-6 rounded-2xl outline-none leading-relaxed text-base font-serif" placeholder="内容..." />
                </div>
