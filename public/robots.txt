@@ -1,0 +1,24 @@
+# 花汪档案馆 / HuaWang Archive
+# 站内存档为第三方作品的翻译，版权归原作者所有，不希望被搜索引擎与 AI 训练爬虫收录。
+
+User-agent: *
+Disallow: /stories/
+
+# 明确拒绝常见 AI 训练 / 内容采集爬虫
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /

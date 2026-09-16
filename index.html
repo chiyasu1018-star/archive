@@ -3,12 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     
-    <!-- 1. 浏览器标签页的小图标 -->
-    <link rel="icon" type="image/jpeg" href="/logo.JPG?v=1" />
+    <!-- 1. 浏览器标签页的小图标（原来直接引用 530KB 的 2560px 大图） -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <!-- 2. iPad/iPhone 桌面书签的小图标 -->
-    <link rel="apple-touch-icon" href="/logo.JPG?v=1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 不参与搜索引擎收录（如需被搜到，删掉下面这一行即可） -->
+    <meta name="robots" content="noindex, nofollow" />
     
     <!-- 3. 网页标题 -->
     <title>花汪档案馆 | HuaWang Archive</title>
@@ -16,12 +19,15 @@
     <!-- 4. 🌟 社交平台分享时的缩略图 (QQ/微博/微信) -->
     <meta property="og:title" content="花汪档案馆 | HuaWang Archive" />
     <meta property="og:description" content="녘랜 (花汪) 同人文作品翻译及存档。" />
-    <meta property="og:image" content="https://hwawangarchive.vercel.app/logo.JPG?v=1" />
+    <meta property="og:url" content="https://hwawangarchive.vercel.app/" />
+    <meta property="og:image" content="https://hwawangarchive.vercel.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:type" content="website" />
     
     <!-- Twitter/X 适配 -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://hwawangarchive.vercel.app/logo.JPG?v=1" />
+    <meta name="twitter:image" content="https://hwawangarchive.vercel.app/og-image.jpg" />
   </head>
   <body>
     <div id="root"></div>
